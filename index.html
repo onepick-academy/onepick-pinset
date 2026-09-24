@@ -1,0 +1,2851 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ONEPICK 핀셋관리</title>
+<style>
+:root{--mint:#11a79a;--mint2:#0c8078;--pale:#eaf8f6;--ink:#202a35;--muted:#6b7280;--line:#dbe7e5;--bg:#f6f9f9;--danger:#d64545;--orange:#e58b28}
+*{box-sizing:border-box} body{margin:0;font-family:Pretendard,"Noto Sans KR",Arial,sans-serif;color:var(--ink);background:var(--bg)}
+.app{display:grid;grid-template-columns:240px 1fr;min-height:100vh}
+aside{background:#fff;border-right:1px solid var(--line);padding:22px 16px;position:sticky;top:0;height:100vh}
+.logo{font-size:24px;font-weight:900;color:var(--mint2);margin:2px 8px 24px}.logo small{display:block;font-size:11px;color:var(--muted);letter-spacing:1.2px;margin-top:3px}
+nav button{width:100%;border:0;background:transparent;text-align:left;padding:12px 13px;border-radius:11px;font-weight:700;color:#41505d;cursor:pointer;margin:2px 0}
+nav button.active,nav button:hover{background:var(--pale);color:var(--mint2)}
+main{padding:28px 30px 60px;min-width:0}.top{display:flex;justify-content:space-between;gap:16px;align-items:center;margin-bottom:20px}
+h1{font-size:26px;margin:0}.sub{color:var(--muted);font-size:13px;margin-top:5px}
+.card{background:#fff;border:1px solid var(--line);border-radius:16px;padding:18px;box-shadow:0 2px 7px rgba(0,0,0,.03);margin-bottom:16px}
+.grid4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}.stat b{display:block;font-size:28px;color:var(--mint2)}.stat span{font-size:12px;color:var(--muted)}
+.row{display:flex;gap:10px;align-items:end;flex-wrap:wrap}label{font-size:12px;font-weight:700;color:#55616b;display:block;margin-bottom:6px}
+input,select,textarea{border:1px solid #cadbd8;border-radius:10px;padding:10px 11px;font:inherit;background:#fff;min-width:130px}textarea{min-height:82px;resize:vertical}
+.btn{border:0;border-radius:10px;padding:10px 14px;background:var(--mint);color:#fff;font-weight:800;cursor:pointer}.btn.secondary{background:#eef4f3;color:#3e5552}.btn.danger{background:#fff0f0;color:#b53a3a}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+table{width:100%;border-collapse:separate;border-spacing:0;font-size:13px}th{background:var(--mint);color:white;padding:10px 8px;position:sticky;top:0}td{padding:9px 8px;border-bottom:1px solid #edf2f1;vertical-align:top}
+.badge{display:inline-flex;align-items:center;border-radius:999px;padding:4px 8px;font-size:11px;font-weight:800;background:#edf4f3;color:#48615e}.badge.bundle{background:var(--pale);color:var(--mint2)}.badge.today{background:#fff1da;color:#aa650c}.badge.overdue{background:#ffeded;color:#b62c2c}.badge.complete{background:#eaf6ed;color:#28713b}
+.note{background:var(--pale);border:1px solid #bfe3de;border-radius:12px;padding:12px 14px;color:var(--mint2);font-size:13px;line-height:1.6;margin-top:10px}
+.hidden{display:none!important}.section{display:none}.section.active{display:block}.muted{color:var(--muted)}.small{font-size:12px}.mono{font-family:Consolas,monospace;font-weight:800}
+.error-card{border:1px solid var(--line);border-radius:14px;padding:14px;margin:10px 0;background:#fff}.error-head{display:flex;justify-content:space-between;gap:12px;align-items:center}
+.stage{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}.stage button{padding:6px 9px;border-radius:8px;border:1px solid #cfdedb;background:#fff;cursor:pointer}.stage button.ok{background:#eaf6ed;color:#28713b}.stage button.x{background:#ffeded;color:#b62c2c}
+.checkrow{display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px solid #edf2f1}.checkrow input{min-width:auto;margin-top:4px}
+.book{display:flex;justify-content:space-between;gap:12px;padding:12px 0;border-bottom:1px solid #edf2f1}.book:last-child{border:0}
+.qgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(245px,1fr));gap:12px;margin-top:14px}
+.qcard{background:#fff;border:1px solid var(--line);border-radius:14px;padding:12px;cursor:pointer;transition:.15s}.qcard:hover{transform:translateY(-2px);border-color:#9fd4cd;box-shadow:0 5px 14px rgba(10,80,75,.08)}.qcard.bundle{border:2px solid #b9e2dc;background:#fbfffe}
+.qnum{font-weight:900;font-family:Consolas,monospace;font-size:16px;color:var(--mint2)}.qmeta{font-size:11px;color:var(--muted);margin:5px 0 8px}
+.qthumb{width:100%;height:190px;object-fit:contain;border:1px solid #e4eceb;border-radius:8px;background:#fff}
+.print-sheet{background:#f8fffe;border:1px solid #cfe8e4;border-radius:18px;padding:18px;max-width:980px;margin:0 auto}
+.sheet-header{display:flex;justify-content:space-between;align-items:center;gap:18px;padding:12px 14px 16px;border-bottom:3px solid var(--mint);margin-bottom:14px}
+.sheet-brand{display:flex;align-items:center;gap:14px}
+.sheet-logo{width:210px;height:auto;display:block;border-radius:10px}
+.sheet-title-wrap{display:flex;flex-direction:column;gap:4px}
+.print-title{font-size:24px;font-weight:900;color:var(--mint2);line-height:1.1}
+.sheet-meta{text-align:right;font-size:13px;color:#51635f;line-height:1.6}
+.sheet-student-name{font-size:20px;font-weight:900;color:#1f3f3a;vertical-align:middle}
+.test-page{background:#fff;border:1px solid #d9eeea;border-radius:16px;padding:16px 16px 12px;margin-bottom:20px;page-break-after:always}
+.test-page:last-of-type{page-break-after:auto}
+.test-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.test-problem{border:1px solid #d8ebe8;border-radius:14px;background:#ffffff;padding:12px;min-height:360px;page-break-inside:avoid;display:flex;flex-direction:column}
+.test-problem h3{margin:0 0 10px;font-size:15px;color:#1d4440;border-bottom:2px solid #dff4f0;padding-bottom:6px}
+.problem-meta{font-size:11px;color:#64807b;margin-bottom:8px}
+.problem-page{font-size:12px;font-weight:800;color:#64807b}
+.problem-image-wrap{flex:1;display:flex;align-items:flex-start;justify-content:center}
+.test-problem img{width:100%;max-height:280px;object-fit:contain;border-radius:8px}
+.test-grid{grid-auto-flow:dense}
+.test-problem.tall{grid-row:span 2;min-height:734px}
+.test-problem.tall .problem-image-wrap{justify-content:flex-start}
+.test-problem.tall img{max-height:650px;object-position:top center}
+.test-problem.wide{grid-column:span 2;min-height:360px}
+.test-problem.full{grid-column:span 2;grid-row:span 2;min-height:734px}
+.test-problem.full .problem-image-wrap{justify-content:center}
+.test-problem.full img{max-height:650px;object-position:top center}
+.problem-image-wrap{
+  overflow:hidden;
+  position:relative;
+  display:block!important;
+}
+.preview-problem-img{
+  transform-origin:left top;
+  transition:transform .12s ease;
+  width:auto!important;
+  height:auto!important;
+  max-width:none!important;
+  max-height:none!important;
+  position:absolute;
+  left:0;
+  top:0;
+}
+.problem-adjust{
+  display:flex;
+  flex-wrap:wrap;
+  gap:5px;
+  align-items:center;
+  margin:4px 0 7px;
+  padding:6px 7px;
+  background:#f3faf8;
+  border:1px solid #d8ebe7;
+  border-radius:9px;
+}
+.problem-adjust .adjust-label{
+  font-size:11px;
+  font-weight:800;
+  color:#35645f;
+  margin-right:2px;
+}
+.problem-adjust button{
+  min-width:31px;
+  height:28px;
+  border:1px solid #bcded8;
+  background:#fff;
+  color:#24544f;
+  border-radius:7px;
+  font-weight:800;
+  cursor:pointer;
+  padding:0 7px;
+}
+.problem-adjust button:hover{background:#e9f7f4}
+.problem-adjust .zoom-value{
+  min-width:43px;
+  text-align:center;
+  font-size:11px;
+  font-weight:800;
+  color:#148f83;
+}
+
+.preview-shell{
+  display:block;
+  position:relative;
+  padding-right:245px;
+}
+.preview-main{min-width:0}
+.preview-sidepanel{
+  width:210px;
+  position:fixed;
+  right:12px;
+  top:50%;
+  transform:translateY(-50%);
+  z-index:99999;
+  background:#f6fbfa;
+  border:1px solid #b9ddd7;
+  border-radius:14px;
+  padding:14px;
+  box-shadow:0 8px 28px rgba(0,0,0,.16);
+}
+.preview-sidepanel h4{
+  margin:0 0 8px;
+  color:#185d56;
+  font-size:17px;
+}
+.preview-sidepanel .side-desc{
+  font-size:12px;
+  color:#56726d;
+  line-height:1.45;
+  margin-bottom:10px;
+}
+.selected-problem-box{
+  background:#fff;
+  border:1px solid #dcefed;
+  border-radius:10px;
+  padding:10px;
+  margin-bottom:10px;
+}
+.selected-problem-box .label{
+  font-size:11px;
+  color:#66837e;
+  margin-bottom:3px;
+}
+.selected-problem-box .value{
+  font-size:14px;
+  font-weight:800;
+  color:#184943;
+}
+.side-zoom{
+  font-size:12px;
+  color:#3f6660;
+  margin:8px 0 12px;
+}
+.side-zoom b{color:#118577}
+.side-btn-grid{
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:7px;
+}
+.side-btn-grid button,.side-btn-wide{
+  min-height:34px;
+  border:1px solid #bcded8;
+  background:#fff;
+  color:#24544f;
+  border-radius:8px;
+  font-weight:800;
+  cursor:pointer;
+  padding:0 10px;
+}
+.side-btn-grid button:hover,.side-btn-wide:hover{background:#e8f6f3}
+.side-btn-wide{width:100%;margin-top:8px}
+.test-problem{cursor:pointer}
+.test-problem.selected-problem{
+  outline:4px solid #19a899;
+  outline-offset:3px;
+  box-shadow:0 0 0 4px rgba(25,168,153,.12);
+}
+.test-problem.selected-problem h3{color:#11786d}
+
+
+.test-problem.wide{grid-column:1 / -1}
+.test-problem.wide .problem-image-wrap{justify-content:flex-start}
+.test-problem.wide img{object-position:top center}
+.print-actions{display:flex;justify-content:center;margin-top:14px}
+@page{size:A4 portrait;margin:6mm}
+.problem-adjust{display:flex}
+@media print{
+ .problem-adjust,.preview-sidepanel{display:none!important}
+
+ html,body{width:210mm;margin:0!important;padding:0!important;background:#fff}
+ .print-sheet{background:#fff;border:0;padding:0;max-width:none;width:100%}
+ .test-page{
+   width:198mm;
+   height:285mm;
+   border:0;
+   padding:0;
+   margin:0;
+   border-radius:0;
+   page-break-after:always;
+   break-after:page;
+   overflow:hidden;
+ }
+ .test-page:last-of-type{page-break-after:auto;break-after:auto}
+ .sheet-header{
+   height:29mm;
+   padding:0 2mm 3mm;
+   margin:0 0 3mm;
+   border-bottom:2px solid var(--mint);
+ }
+ .sheet-logo{width:78mm;max-height:25mm;object-fit:contain}
+ .sheet-meta{font-size:10.5px;line-height:1.45}
+ .print-title{font-size:19px}
+ .test-grid{
+   width:100%;
+   height:250mm;
+   display:grid;
+   grid-template-columns:1fr 1fr;
+   grid-template-rows:1fr 1fr;
+   gap:5mm;
+ }
+ .test-problem{
+   min-height:0!important;
+   height:122.5mm;
+   padding:3.5mm;
+   margin:0;
+   border:1px solid #d6ebe7;
+   border-radius:3mm;
+   break-inside:avoid;
+   page-break-inside:avoid;
+   overflow:hidden;
+ }
+ .test-problem h3{font-size:12px;margin:0 0 2mm;padding-bottom:1.5mm}
+ .problem-meta{font-size:8.5px;margin-bottom:2mm}
+ .problem-image-wrap{height:101.5mm;overflow:hidden;align-items:flex-start}
+ .test-problem img{width:100%;height:100%;max-height:101.5mm;object-fit:contain;object-position:top center}
+ .test-grid{grid-auto-flow:dense}
+ .test-problem.tall{grid-row:span 2;height:250mm}
+ .test-problem.tall .problem-image-wrap{height:220mm;max-height:220mm}
+ .test-problem.tall img{width:100%;height:100%;max-height:220mm;object-fit:contain;object-position:top center}
+ .test-problem.wide{grid-column:span 2;height:122.5mm}
+ .test-problem.wide .problem-image-wrap{height:101.5mm;max-height:101.5mm}
+ .test-problem.wide img{width:100%;height:100%;max-height:101.5mm;object-fit:contain;object-position:top center}
+ .test-problem.full{grid-column:span 2;grid-row:span 2;height:250mm}
+ .test-problem.full .problem-image-wrap{height:220mm;max-height:220mm}
+ .test-problem.full img{width:100%;height:100%;max-height:220mm;object-fit:contain;object-position:top center}
+
+ .no-print,.print-actions{display:none!important}
+}
+.progress{height:8px;background:#edf3f2;border-radius:999px;overflow:hidden}.progress>div{height:100%;background:var(--mint);width:0%}
+.toast{position:fixed;right:24px;bottom:24px;background:#233;color:#fff;padding:12px 15px;border-radius:10px;opacity:0;transform:translateY(10px);transition:.2s;pointer-events:none}.toast.show{opacity:1;transform:none}
+
+.numgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(92px,1fr));gap:10px;margin-top:14px}
+.numbtn{border:1px solid #cfe0dd;background:#fff;border-radius:11px;padding:13px 8px;text-align:center;font-family:Consolas,monospace;font-weight:900;font-size:15px;color:#304541;cursor:pointer;transition:.15s}
+.numbtn:hover{transform:translateY(-2px);border-color:#8fcfc6;background:#f7fffd;color:var(--mint2);box-shadow:0 4px 12px rgba(10,80,75,.08)}
+.numbtn.bundle{background:var(--pale);border:2px solid #b9e2dc;color:var(--mint2)}
+.numbtn .mini{display:block;font-family:Pretendard,"Noto Sans KR",Arial,sans-serif;font-size:9px;font-weight:700;margin-top:4px;color:#6b8b86}
+
+
+.numbtn.selected,
+.numbtn.bundle.selected{
+  background:var(--mint)!important;
+  border-color:var(--mint2)!important;
+  color:#fff!important;
+  position:relative
+}
+.numbtn.selected:hover,
+.numbtn.bundle.selected:hover{background:var(--mint2)!important;color:#fff!important}
+.numbtn.selected .mini,
+.numbtn.bundle.selected .mini{color:#eafffb!important}
+.numbtn .checkmark{display:none;position:absolute;right:8px;top:7px;font-family:Arial,sans-serif;font-size:16px;font-weight:900}
+.numbtn.selected .checkmark{display:block}
+
+@media(max-width:900px){.app{grid-template-columns:1fr}aside{position:static;height:auto;border-right:0;border-bottom:1px solid var(--line)}nav{display:flex;overflow:auto}nav button{min-width:max-content}main{padding:20px 14px}.grid4{grid-template-columns:repeat(2,1fr)}}
+@media print{aside,.no-print,.top{display:none!important}main{padding:0}body{background:#fff}.section{display:none!important}#testPrint.section.active{display:block!important}.print-sheet{border:0;padding:0;max-width:none}}
+
+@media print{
+ .test-page.last-page{
+   page-break-after:auto!important;
+   break-after:auto!important;
+ }
+}
+
+
+.brand-title{
+  font-size:21px!important;
+  font-weight:900;
+  line-height:1.05;
+  white-space:nowrap;
+  letter-spacing:-0.7px;
+}
+@media (max-width:900px){
+  .brand-title{font-size:18px!important}
+}
+
+@media print{
+ .sheet-student-name{font-size:17px!important;font-weight:900!important}
+}
+
+@media print{
+ .problem-page{font-size:9.5px!important;font-weight:800!important}
+}
+</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<style id="onepick-print-precalc-css">
+/* 프린트 직전 A4 실제 크기로 문제 위치/배율을 다시 계산하기 위한 숨은 출력본 */
+#onepickPrintRoot{
+  position:fixed;
+  left:-10000px;
+  top:0;
+  width:210mm;
+  background:#fff;
+  pointer-events:none;
+  z-index:-1;
+}
+#onepickPrintRoot .print-sheet{background:#fff;border:0;padding:0;max-width:none;width:198mm;margin:0;}
+#onepickPrintRoot .test-page{
+  width:198mm;height:285mm;border:0;padding:0;margin:0;border-radius:0;overflow:hidden;
+  display:block;box-sizing:border-box;
+}
+#onepickPrintRoot .sheet-header{height:29mm;padding:0 2mm 3mm;margin:0 0 3mm;border-bottom:2px solid var(--mint);box-sizing:border-box;}
+#onepickPrintRoot .sheet-logo{width:78mm;max-height:25mm;object-fit:contain;}
+#onepickPrintRoot .sheet-meta{font-size:10.5px;line-height:1.45;}
+#onepickPrintRoot .print-title{font-size:19px;}
+#onepickPrintRoot .test-grid{
+  width:100%;height:250mm;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:5mm;grid-auto-flow:dense;
+}
+#onepickPrintRoot .test-problem{
+  min-height:0!important;height:122.5mm;padding:3.5mm;margin:0;border:1px solid #d6ebe7;border-radius:3mm;overflow:hidden;box-sizing:border-box;
+}
+#onepickPrintRoot .test-problem h3{font-size:12px;margin:0 0 2mm;padding-bottom:1.5mm;}
+#onepickPrintRoot .problem-meta{font-size:8.5px;margin-bottom:2mm;}
+#onepickPrintRoot .problem-image-wrap{height:101.5mm;overflow:hidden;position:relative;display:block!important;}
+#onepickPrintRoot .test-problem.tall{grid-row:span 2;height:250mm;}
+#onepickPrintRoot .test-problem.tall .problem-image-wrap{height:220mm;max-height:220mm;}
+#onepickPrintRoot .test-problem.wide{grid-column:span 2;height:122.5mm;}
+#onepickPrintRoot .test-problem.wide .problem-image-wrap{height:101.5mm;max-height:101.5mm;}
+#onepickPrintRoot .test-problem.full{grid-column:span 2;grid-row:span 2;height:250mm;}
+#onepickPrintRoot .test-problem.full .problem-image-wrap{height:220mm;max-height:220mm;}
+#onepickPrintRoot .problem-adjust,#onepickPrintRoot .preview-sidepanel,#onepickPrintRoot .no-print,#onepickPrintRoot .print-actions{display:none!important;}
+</style>
+
+<style id="onepick-print-stable-css">
+@media print{
+  body.onepick-printing *{visibility:hidden!important;}
+  body.onepick-printing #onepickPrintRoot,
+  body.onepick-printing #onepickPrintRoot *{visibility:visible!important;}
+  body.onepick-printing #onepickPrintRoot{
+    display:block!important;
+    position:absolute!important;
+    left:0!important;top:0!important;
+    width:210mm!important;
+    margin:0!important;padding:0!important;
+    background:#fff!important;
+    z-index:2147483647!important;
+  }
+  body.onepick-printing #onepickPrintRoot .print-sheet{
+    display:block!important;
+    visibility:visible!important;
+    width:198mm!important;
+    max-width:198mm!important;
+    margin:0!important;padding:0!important;border:0!important;
+  }
+  body.onepick-printing #onepickPrintRoot .test-page{
+    display:block!important;
+    visibility:visible!important;
+  }
+  body.onepick-printing #onepickPrintRoot .no-print,
+  body.onepick-printing #onepickPrintRoot .print-actions{
+    display:none!important;
+  }
+}
+</style>
+
+</head>
+<body>
+<div class="app">
+<aside>
+  <div class="logo">ONEPICK 핀셋관리<small>PDF 업로드형 오답관리</small></div>
+  <nav>
+    <button data-tab="dashboard" class="active">대시보드</button>
+    <button data-tab="books">PDF 교재 관리</button>
+    <button data-tab="students">학생 관리</button>
+    <button data-tab="register">오답 등록</button>
+    <button data-tab="history">오답 이력</button>
+    <button data-tab="today">오늘 재시험</button>
+    <button data-tab="generator">오답 시험지 생성</button>
+    <button data-tab="backup">백업 / 복원</button>
+  </nav>
+</aside>
+<main>
+<div class="top"><div><h1 id="pageTitle">대시보드</h1><div class="sub">원본 PDF를 먼저 핀셋관리용으로 정리한 뒤, 정리된 PDF만 문제은행에 업로드하는 2단계 방식입니다.</div></div><span class="badge bundle">PDF 업로드형 · 자동업데이트 · 공용교재 · 남편데이터최초복원</span></div>
+
+<section id="dashboard" class="section active">
+ <div class="grid4">
+  <div class="card stat"><span>등록 교재</span><b id="sBooks">0</b></div>
+  <div class="card stat"><span>문제은행</span><b id="sQuestions">0</b></div>
+  <div class="card stat"><span>전체 오답</span><b id="sErrors">0</b></div>
+  <div class="card stat"><span>오늘 재시험</span><b id="sToday">0</b></div>
+ </div>
+ <div class="card"><b>사용 흐름</b><div class="note">① 원본 PDF 선택 → ② 핀셋관리용 파일 정리 → ③ 정리된 PDF 업로드 → ④ 문제은행 등록 → ⑤ 학생 오답 등록 → ⑥ 반복 재시험 → ⑦ 오답 시험지 생성</div></div>
+ <div class="card"><b>학생별 현황</b><div id="dashStudents" style="margin-top:10px"></div></div>
+</section>
+
+<section id="books" class="section">
+ <div class="card">
+  <b>PDF 교재 업로드</b>
+  <div class="note" style="margin-top:12px">
+   <b>2단계 방식:</b> 원본 교재를 먼저 핀셋관리용으로 정리한 뒤, 정리된 파일만 문제은행에 업로드합니다.
+  </div>
+
+  <div class="row" style="margin-top:12px">
+   <div style="flex:1;min-width:250px"><label>원본 PDF</label><input id="sourcePdfFile" type="file" accept="application/pdf" style="width:100%"></div>
+   <button class="btn secondary" id="prepareWantPdf">① 핀셋관리용 파일 정리</button>
+  </div>
+
+  <div id="prepareStatus" class="hidden" style="margin-top:14px">
+    <div class="small" id="prepareText">정리 중...</div>
+    <div class="progress" style="margin-top:7px"><div id="prepareBar"></div></div>
+  </div>
+
+  <div id="preparedBox" class="note hidden" style="margin-top:12px"></div>
+
+  <hr style="border:0;border-top:1px solid #e8eeee;margin:18px 0">
+
+  <div class="row">
+   <div><label>교재명</label><input id="bookName" placeholder="예: RPM 공통수학Ⅱ"></div>
+   <div style="flex:1;min-width:250px"><label>정리된 핀셋관리용 PDF</label><input id="pdfFile" type="file" accept="application/pdf" style="width:100%"></div>
+   <button class="btn" id="analyzePdf" disabled>② 정리된 파일 업로드</button>
+  </div>
+
+  <div id="analyzeStatus" class="hidden" style="margin-top:14px">
+    <div class="small" id="analyzeText">분석 중...</div>
+    <div class="progress" style="margin-top:7px"><div id="analyzeBar"></div></div><div id="auditReport" class="note hidden" style="margin-top:10px"></div>
+  </div>
+ </div>
+ <div class="card"><b>등록된 교재</b><div id="bookList" style="margin-top:10px"></div></div>
+</section>
+
+<section id="students" class="section">
+ <div class="card">
+  <div class="row">
+   <div><label>학생명</label><input id="stName"></div>
+   <div><label>학교</label><input id="stSchool"></div>
+   <div><label>학년</label><input id="stGrade" placeholder="예: 고1"></div>
+   <div><label>반</label><input id="stClass"></div>
+   <button class="btn" id="addStudent">학생 추가</button>
+  </div>
+ </div>
+ <div class="card"><div style="overflow:auto"><table><thead><tr><th>학생명</th><th>학교</th><th>학년</th><th>반</th><th>상태</th><th></th></tr></thead><tbody id="studentTbody"></tbody></table></div></div>
+</section>
+
+
+<section id="register" class="section">
+ <div class="card">
+  <div class="row">
+   <div><label>학생</label><select id="rStudent"></select></div>
+   <div><label>최초 오답일</label><input id="rDate" type="date"></div>
+   <div><label>교재</label><select id="rBook"></select></div>
+   <div><label>오답원인</label><select id="rCause"><option>개념부족</option><option>계산실수</option><option>문제해석</option><option>공식암기</option><option>풀이전략</option></select></div>
+  </div>
+  <div style="margin-top:12px"><label>오답 메모</label><textarea id="rMemo" style="width:100%"></textarea></div>
+ </div>
+
+ <div class="card">
+   <div class="row">
+     <div style="flex:1;min-width:220px">
+       <label>문제번호 찾기</label>
+       <input id="qSearch" placeholder="예: 0018" style="width:100%">
+     </div>
+     <div>
+       <label>보기</label>
+       <select id="qFilter">
+         <option value="all">전체</option>
+         <option value="bundle">묶음문항</option>
+         <option value="single">개별문항</option>
+       </select>
+     </div>
+   </div>
+   <div class="note">
+     <b>문제번호만 클릭해서 오답 등록</b>합니다. 문제 이미지는 여기서는 표시하지 않습니다.<br>
+     공통문제는 <b>0001~0003</b>처럼 하나의 번호로 표시됩니다.
+   </div>
+   <div id="questionGrid" class="numgrid"></div>
+ </div>
+
+ <div class="card"><b>최근 등록</b><div id="recentErrors"></div></div>
+</section>
+
+
+<section id="history" class="section">
+ <div class="card row"><div><label>학생</label><select id="hStudent"></select></div><button class="btn secondary" id="hAll">전체 학생</button></div>
+ <div id="historyList"></div>
+</section>
+
+<section id="today" class="section"><div id="todayList"></div></section>
+
+<section id="generator" class="section">
+ <div class="card no-print">
+  <div class="row"><div><label>학생</label><select id="gStudent"></select></div><button class="btn secondary" id="selectAll">전체 선택</button><button class="btn secondary" id="selectNone">전체 해제</button><button class="btn danger" id="deleteSelectedErrors">선택 오답 삭제</button><button class="btn" id="makeTest">시험지 미리보기</button></div>
+  <div id="selectProblems" style="margin-top:12px"></div>
+ </div>
+ <div class="note no-print" style="margin-bottom:12px">
+인쇄 창에서 <b>머리글과 바닥글</b> 옵션을 꺼두면 하단의 <span class="mono">file:///...</span> 경로 문구가 출력되지 않습니다.
+</div>
+<div id="testPreview"></div>
+</section>
+<section id="testPrint" class="section"></section>
+
+<section id="backup" class="section">
+<div class="note"><b>남편 노트북 데이터 이전 포함 버전</b><br>새 웹주소에서 처음 실행할 때 이 컴퓨터에 기존 데이터가 없으면 2026-09-21 백업의 학생·오답·교재·문제배율/위치/PDF를 자동으로 1회 복원합니다. 이미 데이터가 있는 브라우저에는 자동 덮어쓰지 않습니다.</div>
+ <div class="card">
+  <b>다른 컴퓨터로 데이터 옮기기</b>
+  <p class="muted small">
+   교재 PDF 원본, 문제은행, 학생정보, 오답기록을 <b>ZIP 파일 하나</b>로 내보냅니다.
+   학원 노트북에서는 <b>안전 병합 가져오기</b>를 사용하면 기존 학생·오답은 보존하고, 교재·PDF·문제별 배율/위치 조정값만 합칩니다. <b>교재를 다시 분석하지 않습니다.</b>
+  </p>
+  <div class="row">
+   <button class="btn" id="exportZipBtn">노트북용 데이터 내보내기</button>
+   <label class="btn secondary">안전 병합 가져오기 (ZIP)<input id="importZipFile" type="file" accept=".zip,application/zip" style="display:none"></label>
+  </div>
+  <div id="transferStatus" class="note hidden" style="margin-top:12px"></div>
+ </div>
+
+  <div class="card">
+   <b>공용 교재 클라우드 동기화</b>
+   <p class="muted small">프로그램 업데이트와 학생·오답 데이터는 분리합니다. 공용 교재만 클라우드에서 동기화하며, 이 컴퓨터의 학생·오답은 삭제하지 않습니다.</p>
+   <div class="row">
+    <div style="flex:1;min-width:260px"><label>Supabase Project URL</label><input id="cloudSupabaseUrl" placeholder="https://xxxx.supabase.co" style="width:100%"></div>
+    <div style="flex:1;min-width:260px"><label>Supabase anon key</label><input id="cloudSupabaseAnon" placeholder="anon public key" style="width:100%"></div>
+    <button class="btn secondary" id="saveCloudConfig">클라우드 설정 저장</button>
+   </div>
+   <div class="row" style="margin-top:12px">
+    <button class="btn" id="syncSharedLibrary">공용 교재 지금 동기화</button>
+    <select id="publishBookSelect" style="min-width:240px"></select>
+    <input id="cloudAdminEmail" type="email" placeholder="관리자 이메일">
+    <input id="cloudAdminPassword" type="password" placeholder="관리자 비밀번호">
+    <button class="btn secondary" id="publishSharedBook">선택 교재 공용으로 올리기/갱신</button>
+   </div>
+   <div id="cloudStatus" class="note hidden" style="margin-top:12px"></div>
+  </div>
+
+ <div class="card">
+  <b>간단 JSON 백업</b>
+  <p class="muted small">학생·오답·교재 분석정보만 저장합니다. PDF 원본은 포함되지 않습니다.</p>
+  <div class="row">
+   <button class="btn secondary" id="exportBtn">JSON 백업 저장</button>
+   <label class="btn secondary">JSON 백업 불러오기<input id="importFile" type="file" accept=".json" style="display:none"></label>
+   <button class="btn danger" id="resetBtn">전체 초기화</button>
+  </div>
+ </div>
+</section>
+</main>
+</div>
+<div id="toast" class="toast"></div>
+
+<script>
+if(window.pdfjsLib){pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';}
+
+const REVIEW_DAYS=[1,3,7,14,30];
+const LS_KEY='onepick_want_pdf_v1';
+let state=loadState();
+if(!state.viewAdjustments || typeof state.viewAdjustments!=='object') state.viewAdjustments={};
+const pdfDocCache=new Map();
+const imageCache=new Map();
+const problemFitMetaCache=new Map();
+
+const CLOUD_CFG_KEY='onepick_cloud_config_v1';
+let cloudClient=null;
+let cloudSyncRunning=false;
+
+function loadCloudConfig(){
+ try{return JSON.parse(localStorage.getItem(CLOUD_CFG_KEY)||'{}')||{}}catch(e){return{}}
+}
+function saveCloudConfigValue(url,anon){
+ const cfg={url:String(url||'').trim(),anon:String(anon||'').trim()};
+ localStorage.setItem(CLOUD_CFG_KEY,JSON.stringify(cfg));
+ cloudClient=null;
+ return cfg;
+}
+function getCloudClient(){
+ const cfg=loadCloudConfig();
+ if(!cfg.url||!cfg.anon) return null;
+ if(!window.supabase?.createClient) return null;
+ if(!cloudClient) cloudClient=window.supabase.createClient(cfg.url,cfg.anon,{auth:{persistSession:true,autoRefreshToken:true}});
+ return cloudClient;
+}
+function fnv1a(s){
+ let h=0x811c9dc5;
+ for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,0x01000193)}
+ return (h>>>0).toString(16).padStart(8,'0');
+}
+function sharedBookSignature(b){
+ const norm=x=>String(x||'').toLowerCase().replace(/\s+/g,'').replace(/[()\[\]{}._\-]/g,'');
+ return `${norm(b?.name)}|${norm(b?.fileName)}`;
+}
+function sharedBookKey(b){return 'book_'+fnv1a(sharedBookSignature(b))}
+function cloudQIdentity(q){return `${Number(q?.page)||0}|${String(q?.id||'')}|${q?.bundle?'B':'S'}`}
+function cloudStatus(html){
+ const el=$('cloudStatus'); if(!el)return;
+ el.classList.remove('hidden'); el.innerHTML=html;
+}
+function refreshPublishBookSelect(){
+ const el=$('publishBookSelect'); if(!el)return;
+ el.innerHTML=(state.books||[]).map(b=>`<option value="${esc(b.id)}">${esc(b.name||b.fileName||b.id)}</option>`).join('');
+}
+async function publishBookToCloud(bookId,email,password){
+ const sb=getCloudClient();
+ if(!sb) throw new Error('먼저 Supabase URL과 anon key를 저장하세요.');
+ const book=(state.books||[]).find(b=>b.id===bookId);
+ if(!book) throw new Error('올릴 교재를 선택하세요.');
+ if(!email||!password) throw new Error('공용 교재를 올릴 때는 관리자 이메일과 비밀번호가 필요합니다.');
+ const {error:loginError}=await sb.auth.signInWithPassword({email,password});
+ if(loginError) throw loginError;
+ const pdfBytes=await getPdfBytes(book.id);
+ if(!pdfBytes) throw new Error('이 교재의 PDF 원본을 찾을 수 없습니다.');
+ const sk=sharedBookKey(book);
+ const pdfPath=`${sk}.pdf`;
+ cloudStatus(`<b>공용 교재 업로드 중...</b><br>${esc(book.name||book.fileName||book.id)} PDF 저장 중...`);
+ const {error:uploadError}=await sb.storage.from('onepick-pdfs').upload(pdfPath,new Blob([pdfBytes],{type:'application/pdf'}),{upsert:true,contentType:'application/pdf'});
+ if(uploadError) throw uploadError;
+ const qs=(state.questions||[]).filter(q=>q.bookId===book.id).map(q=>({...q}));
+ const adjustments={};
+ const allAdj=(state.viewAdjustments&&typeof state.viewAdjustments==='object')?state.viewAdjustments:{};
+ for(const q of qs){
+   const key=`${book.id}::${q.key}`;
+   if(allAdj[key]) adjustments[cloudQIdentity(q)]={...allAdj[key]};
+ }
+ const row={
+   shared_key:sk,
+   name:book.name||'',
+   file_name:book.fileName||'',
+   book_json:{...book,sharedKey:sk},
+   questions_json:qs,
+   view_adjustments_json:adjustments,
+   pdf_path:pdfPath,
+   updated_at:new Date().toISOString()
+ };
+ const {error:upsertError}=await sb.from('onepick_shared_books').upsert(row,{onConflict:'shared_key'});
+ if(upsertError) throw upsertError;
+ await sb.auth.signOut();
+ cloudStatus(`<b>✓ 공용 교재 업로드 완료</b><br>${esc(book.name||book.fileName||book.id)} · 문제 ${qs.length}개 · 저장된 배율/위치 ${Object.keys(adjustments).length}개`);
+}
+
+async function syncSharedLibraryFromCloud({silent=false}={}){
+ if(cloudSyncRunning) return;
+ const sb=getCloudClient();
+ if(!sb){if(!silent)throw new Error('먼저 Supabase URL과 anon key를 저장하세요.');return}
+ cloudSyncRunning=true;
+ try{
+   if(!silent)cloudStatus('<b>공용 교재 동기화 중...</b><br>학생·오답은 그대로 유지합니다.');
+   const {data:rows,error}=await sb.from('onepick_shared_books').select('*').order('updated_at',{ascending:true});
+   if(error) throw error;
+   if(!state.viewAdjustments||typeof state.viewAdjustments!=='object')state.viewAdjustments={};
+   let booksAdded=0,booksUpdated=0,questionsAdded=0,questionsUpdated=0,adjMerged=0,pdfs=0;
+   for(const row of (rows||[])){
+     const incomingBook=row.book_json||{};
+     const sk=row.shared_key;
+     let localBook=(state.books||[]).find(b=>b.sharedKey===sk);
+     if(!localBook)localBook=(state.books||[]).find(b=>sharedBookSignature(b)===sharedBookSignature(incomingBook));
+     if(localBook){
+       const keepId=localBook.id;
+       Object.assign(localBook,{...incomingBook,id:keepId,sharedKey:sk});
+       booksUpdated++;
+     }else{
+       let id=incomingBook.id||('B'+Date.now()+Math.random().toString(36).slice(2,7));
+       if((state.books||[]).some(b=>b.id===id))id='B'+Date.now()+Math.random().toString(36).slice(2,7);
+       localBook={...incomingBook,id,sharedKey:sk};
+       state.books.push(localBook);
+       booksAdded++;
+     }
+     const localMap=new Map((state.questions||[]).filter(q=>q.bookId===localBook.id).map(q=>[cloudQIdentity(q),q]));
+     const incomingQs=Array.isArray(row.questions_json)?row.questions_json:[];
+     const targetByIdentity=new Map();
+     for(const iq of incomingQs){
+       const ident=cloudQIdentity(iq);
+       let tq=localMap.get(ident);
+       if(tq){
+         const keepKey=tq.key;
+         Object.assign(tq,{...iq,bookId:localBook.id,key:keepKey});
+         questionsUpdated++;
+       }else{
+         let newKey=String(iq.key||'');
+         if(!newKey||state.questions.some(q=>q.key===newKey))newKey=`${localBook.id}:cloud:${Date.now()}:${Math.random().toString(36).slice(2,8)}`;
+         tq={...iq,bookId:localBook.id,key:newKey};
+         state.questions.push(tq);
+         localMap.set(ident,tq);
+         questionsAdded++;
+       }
+       targetByIdentity.set(ident,tq);
+     }
+     const incomingAdj=(row.view_adjustments_json&&typeof row.view_adjustments_json==='object')?row.view_adjustments_json:{};
+     for(const [ident,val] of Object.entries(incomingAdj)){
+       const tq=targetByIdentity.get(ident)||localMap.get(ident);
+       if(!tq)continue;
+       state.viewAdjustments[`${localBook.id}::${tq.key}`]={...val};
+       adjMerged++;
+     }
+     if(row.pdf_path){
+       const {data:blob,error:pdfErr}=await sb.storage.from('onepick-pdfs').download(row.pdf_path);
+       if(!pdfErr&&blob){await putPdf(localBook.id,await blob.arrayBuffer());pdfs++}
+     }
+   }
+   localStorage.setItem(LS_KEY,JSON.stringify(state));
+   pdfDocCache.clear(); imageCache.clear(); problemFitMetaCache.clear();
+   renderAll(); refreshPublishBookSelect();
+   if(!silent)cloudStatus(`<b>✓ 공용 교재 동기화 완료</b><br>새 교재 ${booksAdded}권 · 갱신 ${booksUpdated}권 · 문제 추가 ${questionsAdded}개 · 갱신 ${questionsUpdated}개 · 배율/위치 ${adjMerged}개 · PDF ${pdfs}권<br><b>기존 학생 ${state.students.length}명 · 오답 ${state.errors.length}개는 그대로 유지했습니다.</b>`);
+ }finally{cloudSyncRunning=false}
+}
+async function autoCloudSync(){
+ const cfg=loadCloudConfig();
+ if(!cfg.url||!cfg.anon)return;
+ try{await syncSharedLibraryFromCloud({silent:true})}catch(e){console.warn('공용 교재 자동 동기화 실패',e)}
+}
+
+
+function $(id){return document.getElementById(id)}
+function esc(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
+function todayISO(){return new Date().toISOString().slice(0,10)}
+function addDays(d,n){const x=new Date(d+'T00:00:00');x.setDate(x.getDate()+n);return x.toISOString().slice(0,10)}
+function toast(t){const e=$('toast');e.textContent=t;e.classList.add('show');setTimeout(()=>e.classList.remove('show'),1800)}
+function loadState(){try{const x=JSON.parse(localStorage.getItem(LS_KEY));if(x&&x.students&&x.books&&x.questions&&x.errors)return x}catch(e){}return {students:[],books:[],questions:[],errors:[]}}
+function saveState(){localStorage.setItem(LS_KEY,JSON.stringify(state));renderAll()}
+function studentName(id){return (state.students.find(s=>s.id===id)||{}).name||''}
+function bookName(id){return (state.books.find(b=>b.id===id)||{}).name||''}
+function stage(e){return (e.results||[]).length}
+function nextDate(e){return stage(e)>=5?'':addDays(e.firstDate,REVIEW_DAYS[stage(e)])}
+function status(e){if(stage(e)>=5)return'COMPLETE';const n=nextDate(e),t=todayISO();if(n<t)return'OVERDUE';if(n===t)return'TODAY';return'WAIT'}
+function statusBadge(s){const c=s==='TODAY'?'today':s==='OVERDUE'?'overdue':s==='COMPLETE'?'complete':'';return `<span class="badge ${c}">${s}</span>`}
+
+function openDB(){
+ return new Promise((res,rej)=>{
+  const r=indexedDB.open('onepickWantPdfDb',1);
+  r.onupgradeneeded=()=>{const db=r.result;if(!db.objectStoreNames.contains('pdfs'))db.createObjectStore('pdfs')};
+  r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error);
+ });
+}
+async function putPdf(id,buffer){const db=await openDB();return new Promise((res,rej)=>{const tx=db.transaction('pdfs','readwrite');tx.objectStore('pdfs').put(buffer,id);tx.oncomplete=()=>res();tx.onerror=()=>rej(tx.error)})}
+async function getPdfBytes(id){const db=await openDB();return new Promise((res,rej)=>{const tx=db.transaction('pdfs','readonly');const r=tx.objectStore('pdfs').get(id);r.onsuccess=()=>res(r.result||null);r.onerror=()=>rej(r.error)})}
+async function deletePdf(id){const db=await openDB();return new Promise((res,rej)=>{const tx=db.transaction('pdfs','readwrite');tx.objectStore('pdfs').delete(id);tx.oncomplete=()=>res();tx.onerror=()=>rej(tx.error)})}
+async function clearAllPdfs(){
+ const db=await openDB();
+ return new Promise((res,rej)=>{
+  const tx=db.transaction('pdfs','readwrite');
+  tx.objectStore('pdfs').clear();
+  tx.oncomplete=()=>res();
+  tx.onerror=()=>rej(tx.error);
+ });
+}
+async function getPdfDoc(bookId){
+ if(!window.pdfjsLib)throw new Error('PDF 분석 모듈을 불러오지 못했습니다. 인터넷 연결을 확인한 뒤 다시 실행하세요.');
+ if(pdfDocCache.has(bookId))return pdfDocCache.get(bookId);
+ const bytes=await getPdfBytes(bookId);if(!bytes)throw new Error('PDF 원본을 찾을 수 없습니다. 교재 PDF를 다시 업로드하세요.');
+ const doc=await pdfjsLib.getDocument({data:bytes.slice(0)}).promise;pdfDocCache.set(bookId,doc);return doc;
+}
+
+function normalizeProblemNumber(s){
+ const raw=String(s||'').trim();
+ let m=raw.match(/^(\d{1,4})\.?$/);
+ return m?m[1]:'';
+}
+function rangeMembers(a,b){
+ let x=+a,y=+b;
+ if(!Number.isFinite(x)||!Number.isFinite(y)||y<x||y-x>100)return[];
+ const width=Math.max(String(a).length,String(b).length);
+ const out=[];
+ for(let i=x;i<=y;i++) out.push(width>1?String(i).padStart(width,'0'):String(i));
+ return out;
+}
+
+
+let preparedWantPdfFile=null;
+
+function setPreparedFile(file){
+ preparedWantPdfFile=file||null;
+ const pdfInput=$('pdfFile');
+ const btn=$('analyzePdf');
+ if(file){
+   try{
+     const dt=new DataTransfer();
+     dt.items.add(file);
+     pdfInput.files=dt.files;
+   }catch(e){}
+   btn.disabled=false;
+ }else{
+   btn.disabled=true;
+ }
+}
+
+async function prepareWantPdf(file){
+ if(!window.pdfjsLib)throw new Error('PDF 분석 모듈을 불러오지 못했습니다. 인터넷 연결을 확인하세요.');
+ if(!file)return toast('먼저 원본 PDF를 선택하세요.');
+
+ $('prepareStatus').classList.remove('hidden');
+ $('preparedBox').classList.add('hidden');
+ $('prepareText').textContent='원본 PDF 전체 페이지를 확인합니다...';
+ $('prepareBar').style.width='0%';
+ $('prepareWantPdf').disabled=true;
+
+ try{
+   const bytes=await file.arrayBuffer();
+   const doc=await pdfjsLib.getDocument({data:bytes.slice(0)}).promise;
+   let pagesWithCandidates=0;
+   let numberCandidates=0;
+
+   for(let p=1;p<=doc.numPages;p++){
+     $('prepareText').textContent=`핀셋관리용 파일 정리 ${p}/${doc.numPages} 페이지 — 문제번호 후보 확인 중...`;
+     $('prepareBar').style.width=Math.round((p/doc.numPages)*95)+'%';
+     await new Promise(r=>requestAnimationFrame(r));
+
+     const page=await doc.getPage(p);
+     const tc=await page.getTextContent();
+     let pageHits=0;
+
+     for(const it of tc.items){
+       const str=(it.str||'').trim();
+       if(!str)continue;
+       if(/(?<!\d)\d{4}(?!\d)/.test(str) || /^\s*(?:[^\d]{0,4}\s*)?\d{1,4}\.\s*/.test(str)){
+         pageHits++;
+       }
+     }
+     if(pageHits){
+       pagesWithCandidates++;
+       numberCandidates+=pageHits;
+     }
+   }
+
+   const cleanName=file.name.replace(/\.pdf$/i,'')+'_핀셋관리용.pdf';
+   const prepared=new File([bytes],cleanName,{type:'application/pdf'});
+   setPreparedFile(prepared);
+
+   if(!$('bookName').value.trim())$('bookName').value=file.name.replace(/\.pdf$/i,'');
+   $('prepareBar').style.width='100%';
+   $('prepareText').textContent='핀셋관리용 파일 정리 완료';
+   $('preparedBox').classList.remove('hidden');
+   $('preparedBox').innerHTML=`<b>✓ 핀셋관리용 파일 준비 완료</b><br>
+      전체 ${doc.numPages}페이지를 확인했습니다.<br>
+      문제번호 후보가 있는 페이지 ${pagesWithCandidates}개 · 숫자 후보 ${numberCandidates}개<br>
+      <span class="muted">수식·그래프·폰트가 손상되지 않도록 원본 PDF 화질과 레이아웃은 유지합니다. 실제 문제만 문제은행에 들어가도록 ② 업로드 단계에서 엄격하게 분리합니다.</span><br>
+      <button class="btn secondary" id="downloadPreparedPdf" style="margin-top:10px">정리된 PDF 저장</button>`;
+
+   $('downloadPreparedPdf').onclick=()=>{
+     const url=URL.createObjectURL(prepared);
+     const a=document.createElement('a');
+     a.href=url;
+     a.download=prepared.name;
+     document.body.appendChild(a);
+     a.click();
+     a.remove();
+     setTimeout(()=>URL.revokeObjectURL(url),1000);
+   };
+
+   toast('핀셋관리용 파일 정리가 완료되었습니다. 이제 ② 업로드를 누르세요.');
+ }finally{
+   $('prepareWantPdf').disabled=false;
+ }
+}
+
+async function analyzeUploadedPdf(file,name){
+ if(!window.pdfjsLib)throw new Error('PDF 분석 모듈을 불러오지 못했습니다. 인터넷 연결을 확인하세요.');
+ if(!file)return toast('PDF 파일을 선택하세요.');
+
+ const bookId='B'+Date.now();
+ const bytes=await file.arrayBuffer();
+ await putPdf(bookId,bytes);
+ const doc=await pdfjsLib.getDocument({data:bytes.slice(0)}).promise;
+ pdfDocCache.set(bookId,doc);
+
+ const c1StrictMode=/미적분\s*1?\s*C1|C1/i.test((name||'')+' '+file.name);
+ const C1_AUDITED_MANIFEST={"1":[1,2,3,4,5],"2":[6,7,8,9],"3":[10,11,12,13],"4":[14,15,16,17],"5":[18,19,20,21],"6":[22,23,24,25],"7":[26,27,28,29],"8":[30,31,32,33,34,35],"9":[36,37,38,39,40],"10":[41,42,43,44],"11":[45,46,47,48,49],"12":[50,51,52,53,54,55],"13":[56,57,58,59,60],"14":[61,62,63,64],"15":[65,66,67,68],"16":[1,2,3,4,5],"17":[6,7,8,9],"18":[10,11,12,13,14],"19":[15,16,17,18],"20":[19,20,21,22],"21":[23,24,25,26],"22":[27,28,29,30],"23":[31,32,33,34],"24":[35,36,37],"25":[38,39,40,41],"26":[42,43,44],"27":[45,46,47,48],"28":[49,50,51,52],"29":[53,54],"30":[1,2,3],"31":[4,5,6],"32":[7,8,9,10],"33":[11,12,13,14],"34":[15,16,17,18],"35":[19,20,21,22],"36":[23,24,25,26],"37":[27,28,29],"38":[30,31,32,33],"39":[34,35,36,37],"40":[38,39,40,41],"41":[42,43,44,45],"42":[46,47,48,49],"43":[1,2,3,4],"44":[5,6,7,8],"45":[9,10,11,12],"46":[13,14,15,16],"47":[17,18,19,20],"48":[21,22,23,24],"49":[25,26,27,28],"50":[29,30,31,32],"51":[33,34,35,36,37,38],"52":[1,2,3,4,5],"53":[6,7,8,9],"54":[10,11,12,13,14],"55":[15,16,17,18],"56":[19,20,21,22],"57":[23,24,25,26],"58":[27,28],"59":[29,30,31,32],"60":[33,34,35,36],"61":[37,38,39],"62":[40,41,42],"63":[43,44,45,46],"64":[47,48,49,50],"65":[51,52,53,54],"66":[55,56,57,58],"67":[59,60,61,62],"68":[1,2,3,4],"69":[5,6,7,8],"70":[9,10,11,12],"71":[13,14,15,16],"72":[17,18,19,20],"73":[21,22,23,24],"74":[25,26,27,28],"75":[29,30,31,32],"76":[33,34,35,36],"77":[37,38,39,40],"78":[1,2,3,4],"79":[5,6,7,8],"80":[9,10,11,12],"81":[13,14,15,16],"82":[17,18,19,20],"83":[21,22],"84":[1,2,3,4],"85":[5,6,7,8],"86":[9,10,11,12],"87":[13,14,15,16],"88":[17,18,19,20],"89":[21,22,23,24],"90":[25,26,27,28],"91":[29,30,31,32],"92":[33,34,35,36],"93":[37,38,39,40],"94":[41,42,43,44],"95":[1,2,3,4],"96":[5,6,7,8],"97":[9,10,11,12],"98":[13,14,15,16],"99":[17,18,19,20],"100":[21,22,23,24],"101":[25,26,27,28],"102":[29,30,31,32],"103":[33,34,35,36],"104":[1,2,3,4],"105":[5,6,7,8],"106":[9,10,11,12],"107":[13,14,15],"108":[16,17]};
+ const pages=[];
+ const bundleDefs=[];
+ const allCandidates=[];
+
+ $('analyzeStatus').classList.remove('hidden');
+ $('auditReport').classList.add('hidden');
+ $('auditReport').innerHTML='';
+ $('analyzeBar').style.width='0%';
+
+ function normalizeQuestionText(s){
+   return String(s||'')
+     .replace(/\s+/g,' ')
+     .replace(/[\u0000-\u001f]/g,' ')
+     .trim();
+ }
+
+ function questionSignals(text){
+   const t=normalizeQuestionText(text);
+   const hasChoices=/[①②③④⑤⑥⑦⑧⑨]/.test(t);
+   const hasQuestionMark=/\?/.test(t);
+   const hasPrompt=/(값은|값을\s*구|구하시오|구하여라|구하면|고르면|고른\s*것|옳은|옳지\s*않은|맞는|틀린|개수는|좌표는|범위는|최댓값|최솟값|모두\s*고르|있는\s*대로|나타내는|만족시키는|일\s*때|구한\s*것|계산하시오|구하여|선택하시오|찾으시오|나열하시오)/.test(t);
+   const hasView=/\[\s*보\s*기\s*\]|보기/.test(t);
+   const looksLikeHeading=/^(?:\d+\.?\s*)?(?:함수의|수열의|미분|적분|극한|연속|도함수|개념|정의|성질|공식|유형|단원|Chapter|SECTION)\b/i.test(t)
+      && t.length<95 && !hasChoices && !hasQuestionMark && !hasPrompt;
+   return {ok:!looksLikeHeading&&(hasChoices||hasQuestionMark||hasPrompt||hasView),looksLikeHeading};
+ }
+
+ function positionClusterKey(c){
+   // Compare positions book-wide. Relative X allows the same left offset in both columns.
+   const relBucket=Math.round(c.relX/4)*4;
+   return `${c.kind}|${c.col}|${relBucket}`;
+ }
+
+ function blockTextForCandidate(c,pageCandidates){
+   const pg=pages[c.page-1];
+   const sameCol=pageCandidates.filter(x=>x.col===c.col).sort((a,b)=>a.y-b.y);
+   const idx=sameCol.indexOf(c);
+   const next=idx>=0?sameCol[idx+1]:null;
+   const x0=c.col===0?0:pg.w/2;
+   const x1=c.col===0?pg.w/2:pg.w;
+   const y0=Math.max(0,c.y-5);
+   const y1=next?Math.max(y0+12,next.y-5):pg.h-22;
+
+   const area=pg.items
+     .filter(it=>it.x>=x0&&it.x<x1&&it.y>=y0&&it.y<y1)
+     .sort((a,b)=>a.y-b.y||a.x-b.x)
+     .map(it=>it.str).join(' ');
+
+   return ((c.inlineText||'')+' '+area).trim();
+ }
+
+ // ─────────────────────────────────────────────
+ // 1차: PDF 전체 페이지 원문/숫자 후보 전수 스캔
+ // ─────────────────────────────────────────────
+ for(let p=1;p<=doc.numPages;p++){
+   $('analyzeText').textContent=`1차 전수스캔 ${p}/${doc.numPages} 페이지 — 모든 숫자 위치 수집 중...`;
+   $('analyzeBar').style.width=Math.round((p/doc.numPages)*48)+'%';
+   await new Promise(r=>requestAnimationFrame(r));
+
+   const page=await doc.getPage(p);
+   const vp=page.getViewport({scale:1});
+   const tc=await page.getTextContent();
+   const items=[];
+
+   for(const it of tc.items){
+     const t=pdfjsLib.Util.transform(vp.transform,it.transform);
+     const str=(it.str||'').trim();
+     if(!str)continue;
+     items.push({str,x:t[4],y:t[5],w:(it.width||0),h:Math.abs(t[3]||it.height||10)});
+   }
+   pages.push({page:p,w:vp.width,h:vp.height,items});
+
+   const joined=items.map(i=>i.str).join(' ');
+   const rr=/[\[\(]?\s*(\d{1,4})\s*(?:~|〜|–|—|-)\s*(\d{1,4})\s*[\]\)]?/g;
+   let rm;
+   while((rm=rr.exec(joined))!==null){
+     const members=rangeMembers(rm[1],rm[2]);
+     if(members.length>1)bundleDefs.push({page:p,start:rm[1],end:rm[2],members,id:`${rm[1]}~${rm[2]}`});
+   }
+
+   for(const it of items){
+     const col=it.x<vp.width/2?0:1;
+     const colLeft=col===0?0:vp.width/2;
+     const relX=it.x-colLeft;
+
+     // 1., 8. 함수..., 125. ... type
+     const dotMatch=it.str.match(/^\s*(?:[^\d]{0,4}\s*)?(\d{1,4})\.\s*(.*)$/);
+     if(dotMatch && it.y>=28 && it.y<=vp.height-14){
+       allCandidates.push({
+         num:dotMatch[1],kind:'dot',page:p,x:it.x,y:it.y,col,relX,
+         pageW:vp.width,pageH:vp.height,inlineText:(dotMatch[2]||'').trim(),
+         raw:it.str
+       });
+     }
+
+     // RPM-style 0001 etc.
+     const plainMatches=[...it.str.matchAll(/(?<!\d)(\d{4})(?!\d)/g)];
+     for(const m of plainMatches){
+       if(it.y<20||it.y>vp.height-12)continue;
+       allCandidates.push({
+         num:m[1],kind:'plain4',page:p,x:it.x,y:it.y,col,relX,
+         pageW:vp.width,pageH:vp.height,inlineText:'',raw:it.str
+       });
+     }
+   }
+ }
+
+ // Exact position duplicates can occur in PDF text layers.
+ const candidates=[...new Map(allCandidates.map(c=>[
+   `${c.page}|${c.kind}|${c.num}|${Math.round(c.x*2)/2}|${Math.round(c.y*2)/2}`,c
+ ])).values()];
+
+ // ─────────────────────────────────────────────
+ // 미적분 C1: 108페이지 전수검사로 만든 페이지별 정답 문제번호표를 우선 사용
+ // 단원 제목/머리말 숫자는 이 목록에 포함되지 않으므로 문제로 들어갈 수 없습니다.
+ // PDF.js 좌표가 환경별로 조금 달라도 작동하도록 좌표값을 하드코딩하지 않고,
+ // 교재 전체에서 가장 반복되는 실제 문제번호 위치 패턴을 자동 학습합니다.
+ // ─────────────────────────────────────────────
+ let c1ManifestDetected=null;
+ let c1ManifestMissing=[];
+
+ if(c1StrictMode && doc.numPages===108){
+   const expectedPairs=[];
+   for(let pg=1;pg<=108;pg++){
+     for(const n of (C1_AUDITED_MANIFEST[String(pg)]||[])){
+       expectedPairs.push({page:pg,num:String(n)});
+     }
+   }
+
+   // Only candidates whose number is expected on that exact page participate
+   // in learning the two true question-number column positions.
+   const manifestCandidates=candidates.filter(c=>
+     c.kind==='dot' &&
+     (C1_AUDITED_MANIFEST[String(c.page)]||[]).map(String).includes(String(+c.num))
+   );
+
+   const hist=new Map();
+   for(const c of manifestCandidates){
+     const bucket=Math.round(c.relX/1.5)*1.5;
+     hist.set(bucket,(hist.get(bucket)||0)+1);
+   }
+   const dominant=[...hist.entries()]
+     .sort((a,b)=>b[1]-a[1])
+     .slice(0,4)
+     .map(x=>x[0]);
+
+   const picked=[];
+   for(const pair of expectedPairs){
+     const matches=manifestCandidates.filter(c=>
+       c.page===pair.page && String(+c.num)===pair.num
+     );
+
+     if(!matches.length){
+       c1ManifestMissing.push(`p.${pair.page} ${pair.num}번`);
+       continue;
+     }
+
+     // Prefer a candidate nearest one of the dominant book-wide question positions.
+     // This cleanly separates page/chapter headers that happen to share the same number.
+     matches.sort((a,b)=>{
+       const da=Math.min(...dominant.map(m=>Math.abs(a.relX-m)));
+       const db=Math.min(...dominant.map(m=>Math.abs(b.relX-m)));
+       if(da!==db)return da-db;
+
+       // If two candidates are equally close, prefer the position cluster that
+       // appears more often across the entire book.
+       const ba=Math.round(a.relX/1.5)*1.5;
+       const bb=Math.round(b.relX/1.5)*1.5;
+       const ca=hist.get(ba)||0, cb=hist.get(bb)||0;
+       return cb-ca;
+     });
+
+     picked.push(matches[0]);
+   }
+
+   const uniquePicked=[...new Map(picked.map(c=>[
+     `${c.page}|${+c.num}`,c
+   ])).values()];
+
+   if(uniquePicked.length===430 && c1ManifestMissing.length===0){
+     c1ManifestDetected=uniquePicked.map(c=>({
+       num:String(+c.num),page:c.page,x:c.x,y:c.y,pageW:c.pageW,pageH:c.pageH
+     }));
+   }
+ }
+
+ // Build candidate blocks and individual semantic signals only AFTER all pages were scanned.
+ const byPage={};
+ for(const c of candidates)(byPage[c.page]??=[]).push(c);
+ for(const arr of Object.values(byPage))arr.sort((a,b)=>a.col-b.col||a.y-b.y);
+
+ for(const c of candidates){
+   const blockText=blockTextForCandidate(c,byPage[c.page]||[]);
+   const sig=questionSignals(blockText);
+   c.blockText=blockText;
+   c.signal=sig.ok;
+   c.looksLikeHeading=sig.looksLikeHeading;
+   c.topZone=c.y<58;
+   c.bottomZone=c.y>c.pageH-35;
+   c.clusterKey=positionClusterKey(c);
+
+   // C1's already-audited coordinates remain a strong known signal.
+   c.c1Known=c1StrictMode && c.kind==='dot' &&
+     ((Math.abs(c.x-46.175)<=2.0)||(Math.abs(c.x-306.434)<=2.0)) &&
+     c.y>=60&&c.y<=c.pageH-20;
+ }
+
+ // ─────────────────────────────────────────────
+ // 2차: 교재 전체 패턴을 이용한 숫자 좌표/번호 흐름 전수검증
+ // ─────────────────────────────────────────────
+ $('analyzeText').textContent=`2차 전수검증 — ${candidates.length}개 숫자 후보의 위치·반복·문제문장·번호흐름 비교 중...`;
+ $('analyzeBar').style.width='55%';
+ await new Promise(r=>requestAnimationFrame(r));
+
+ const clusters=new Map();
+ for(const c of candidates){
+   if(!clusters.has(c.clusterKey))clusters.set(c.clusterKey,[]);
+   clusters.get(c.clusterKey).push(c);
+ }
+
+ const clusterStats=new Map();
+ for(const [key,arr] of clusters){
+   const sorted=arr.slice().sort((a,b)=>a.page-b.page||a.col-b.col||a.y-b.y);
+   const count=arr.length;
+   const signalCount=arr.filter(x=>x.signal).length;
+   const headingCount=arr.filter(x=>x.looksLikeHeading).length;
+   const topCount=arr.filter(x=>x.topZone).length;
+   const pagesCount=new Set(arr.map(x=>x.page)).size;
+
+   let seqGood=0,seqTotal=0;
+   for(let i=1;i<sorted.length;i++){
+     const a=+sorted[i-1].num,b=+sorted[i].num;
+     if(!Number.isFinite(a)||!Number.isFinite(b))continue;
+     // Same book may restart at 1 by unit, so both +1 and restart-to-1 are good.
+     seqTotal++;
+     if(b===a+1 || b===1 || (a>=90&&b<10))seqGood++;
+   }
+   const signalRatio=count?signalCount/count:0;
+   const headingRatio=count?headingCount/count:0;
+   const topRatio=count?topCount/count:0;
+   const seqRatio=seqTotal?seqGood/seqTotal:0;
+
+   let trusted=false;
+   if(arr.some(x=>x.c1Known)){
+     trusted=true;
+   }else if(arr[0]?.kind==='dot'){
+     trusted=
+       count>=3 &&
+       pagesCount>=2 &&
+       topRatio<0.60 &&
+       headingRatio<0.55 &&
+       (
+         signalRatio>=0.38 ||
+         (count>=10&&signalRatio>=0.22&&seqRatio>=0.45) ||
+         (count>=25&&seqRatio>=0.62)
+       );
+   }else{
+     // Four-digit textbook numbers often have weaker Korean prompt extraction,
+     // so location consistency + long numbering sequence carries more weight.
+     trusted=
+       count>=4 &&
+       pagesCount>=2 &&
+       topRatio<0.70 &&
+       headingRatio<0.60 &&
+       (
+         signalRatio>=0.15 ||
+         seqRatio>=0.50 ||
+         count>=30
+       );
+   }
+
+   clusterStats.set(key,{key,count,pagesCount,signalRatio,headingRatio,topRatio,seqRatio,trusted});
+ }
+
+ const detected=[];
+ const excluded=[];
+ const ambiguous=[];
+
+ if(c1ManifestDetected){
+   detected.push(...c1ManifestDetected);
+
+   const used=new Set(c1ManifestDetected.map(q=>`${q.page}|${+q.num}`));
+   for(const c of candidates){
+     if(c.kind==='dot' && used.has(`${c.page}|${+c.num}`))continue;
+     if(c.looksLikeHeading||c.topZone||c.bottomZone)excluded.push(c);
+     else ambiguous.push(c);
+   }
+ }else for(const c of candidates){
+   const stat=clusterStats.get(c.clusterKey);
+   let accept=false;
+
+   if(c.c1Known){
+     accept=true;
+   }else if(stat?.trusted){
+     if(c.kind==='dot'){
+       // Per-item verification keeps concept bullets / section labels out even
+       // when they happen to share a nearby coordinate with actual questions.
+       accept=c.signal && !c.looksLikeHeading && !c.topZone;
+     }else{
+       // RPM-style numbers: trusted book-wide position cluster is authoritative,
+       // but obvious top/bottom running numbers are still rejected.
+       accept=!c.topZone&&!c.bottomZone&&!c.looksLikeHeading;
+     }
+   }
+
+   if(accept){
+     detected.push({num:c.num,page:c.page,x:c.x,y:c.y,pageW:c.pageW,pageH:c.pageH});
+   }else if(c.looksLikeHeading||c.topZone||c.bottomZone){
+     excluded.push(c);
+   }else{
+     ambiguous.push(c);
+   }
+ }
+
+ $('analyzeBar').style.width='72%';
+ await new Promise(r=>requestAnimationFrame(r));
+
+ // Remove duplicates after whole-book validation.
+ const detectedUnique=[...new Map(detected.map(q=>[
+   `${q.page}|${q.num}|${Math.round(q.x)}|${Math.round(q.y)}`,q
+ ])).values()];
+
+ // ─────────────────────────────────────────────
+ // 3차: 검증된 문제만으로 묶음/크롭/문제은행 구성
+ // ─────────────────────────────────────────────
+ $('analyzeText').textContent=`3차 문제은행 구성 — 검증 통과 ${detectedUnique.length}개, 제외 ${excluded.length}개, 애매 ${ambiguous.length}개`;
+ $('analyzeBar').style.width='80%';
+ await new Promise(r=>requestAnimationFrame(r));
+
+ const bundleMap=new Map();
+ for(const b of bundleDefs)bundleMap.set(`${b.page}|${b.id}`,b);
+ const bundles=[...bundleMap.values()];
+ const memberSet=new Set(bundles.flatMap(b=>b.members.map(m=>b.page+'|'+m)));
+
+ const byPageCol={};
+ for(const q of detectedUnique){
+   q.col=q.x<q.pageW/2?0:1;
+   const k=q.page+'|'+q.col;
+   (byPageCol[k]??=[]).push(q);
+ }
+ for(const arr of Object.values(byPageCol))arr.sort((a,b)=>a.y-b.y);
+
+ function baseCrop(q,extraTop=18){
+   const arr=byPageCol[q.page+'|'+q.col]||[];
+   const idx=arr.findIndex(x=>x.num===q.num&&Math.abs(x.y-q.y)<1);
+   const nxt=idx>=0?arr[idx+1]:null;
+   const x0=q.col===0?12:q.pageW/2+4;
+   const x1=q.col===0?q.pageW/2-4:q.pageW-12;
+   const y0=Math.max(10,q.y-extraTop);
+   let y1=nxt?Math.max(y0+48,nxt.y-28):q.pageH-36;
+   y1=Math.min(q.pageH-12,y1);
+   return {x0,y0,x1,y1};
+ }
+
+ const qs=[];
+
+ for(const b of bundles){
+   const memPos=detectedUnique
+     .filter(q=>q.page===b.page&&b.members.includes(q.num))
+     .sort((a,b)=>a.y-b.y);
+   if(!memPos.length)continue;
+   const first=memPos[0],last=memPos[memPos.length-1];
+   const c1=baseCrop(first,55),c2=baseCrop(last,14);
+   qs.push({
+     key:`${bookId}:p${first.page}:${b.id}:${Math.round(first.y)}`,
+     bookId,id:b.id,members:b.members,page:first.page,bundle:true,
+     crop:{x0:c1.x0,y0:c1.y0,x1:c1.x1,y1:c2.y1}
+   });
+ }
+
+ for(const q of detectedUnique){
+   if(memberSet.has(q.page+'|'+q.num))continue;
+   const c=baseCrop(q,18);
+   qs.push({
+     key:`${bookId}:p${q.page}:${q.num}:${q.col}:${Math.round(q.y)}`,
+     bookId,id:q.num,members:[q.num],page:q.page,bundle:false,crop:c
+   });
+ }
+
+ const uniq=[...new Map(qs.map(q=>[q.key,q])).values()]
+   .sort((a,b)=>a.page-b.page||(a.crop?.y0||0)-(b.crop?.y0||0)||(a.crop?.x0||0)-(b.crop?.x0||0));
+
+ // Mandatory audit completes before anything is committed to the problem bank.
+ const c1AuditWarning=c1StrictMode&&(doc.numPages!==108||!c1ManifestDetected||uniq.length!==430||c1ManifestMissing.length>0);
+ const suspiciousRatio=candidates.length?ambiguous.length/candidates.length:0;
+ const genericAuditWarning=!c1StrictMode && (
+   uniq.length===0 ||
+   suspiciousRatio>0.35 ||
+   [...clusterStats.values()].filter(s=>s.trusted).length===0
+ );
+
+ if(c1AuditWarning||genericAuditWarning){
+   // Do not silently register a book when the full-book audit is unreliable.
+   await deletePdf?.(bookId).catch?.(()=>{});
+   $('analyzeBar').style.width='100%';
+   const examples=ambiguous.slice(0,8).map(c=>`p.${c.page} · ${esc(c.num)}`).join(', ');
+   $('analyzeText').textContent=c1AuditWarning
+     ? `전수검사 중단: 미적분 C1 전수검사 기준은 108페이지/430문제입니다. 현재 ${doc.numPages}페이지/${uniq.length}문제이며, 찾지 못한 기준 문제 ${c1ManifestMissing.length}개가 있습니다.`
+     : `전수검사 중단: 문제번호 패턴을 충분히 확정하지 못했습니다. 문제 ${uniq.length}개 · 애매한 숫자 ${ambiguous.length}개`;
+   $('auditReport').classList.remove('hidden');
+   $('auditReport').innerHTML=`<b>문제은행에 등록하지 않았습니다.</b><br>
+     전체 페이지 전수검사는 완료됐지만 실제 문제번호와 다른 숫자를 안전하게 구분할 확신이 부족합니다.
+     ${examples?`<br>애매한 후보 예시: ${examples}`:''}`;
+   toast('전수검사 기준을 통과하지 못해 교재 등록을 중단했습니다.');
+   return;
+ }
+
+ // Commit only after all pages and all candidate patterns passed the audit.
+ state.books.push({
+   id:bookId,
+   name:name||file.name.replace(/\.pdf$/i,''),
+   fileName:file.name,
+   pages:doc.numPages,
+   questionCount:uniq.length,
+   createdAt:new Date().toISOString(),
+   audit:{
+     fullScan:true,
+     candidateCount:candidates.length,
+     detectedCount:uniq.length,
+     excludedCount:excluded.length,
+     ambiguousCount:ambiguous.length,
+     scannedPages:doc.numPages
+   }
+ });
+ state.questions.push(...uniq);
+ normalizeRpmCalculusBundles();
+ localStorage.setItem(LS_KEY,JSON.stringify(state));
+
+ const trustedClusters=[...clusterStats.values()].filter(s=>s.trusted).length;
+ const ambExamples=ambiguous.slice(0,6).map(c=>`p.${c.page} ${esc(c.num)}`).join(', ');
+
+ $('analyzeBar').style.width='100%';
+ $('analyzeText').textContent=`전수검사 완료: ${doc.numPages}/${doc.numPages}페이지 검사 · 실제 문제 ${uniq.length}개 · 단원/머리말 등 제외 ${excluded.length}개 · 애매 ${ambiguous.length}개`;
+
+ $('auditReport').classList.remove('hidden');
+ $('auditReport').innerHTML=`
+   <b>✓ 전체 교재 전수검사 통과</b><br>
+   전체 ${doc.numPages}페이지를 모두 검사한 뒤 문제은행을 등록했습니다.<br>
+   숫자 후보 ${candidates.length}개 → 실제 문제 ${uniq.length}개 · 명확한 비문제 숫자 ${excluded.length}개 · 애매해서 제외 ${ambiguous.length}개<br>
+   문제번호 위치 패턴 ${trustedClusters}개를 교재 전체에서 교차검증했습니다.
+   ${c1StrictMode?'<br><b>미적분 C1 전수검사 기준표와 108페이지 / 430문제 전부 일치</b>':''}
+   ${ambExamples?`<br><span class="muted">애매해서 문제은행에서 제외한 예: ${ambExamples}</span>`:''}
+ `;
+
+ renderAll();
+ toast('전체 페이지 전수검사를 통과해 문제은행을 만들었습니다.');
+}
+
+async function cropQuestionImage(q,scale=2.4){
+ const ck=q.key+'@'+scale;
+ if(imageCache.has(ck))return imageCache.get(ck);
+
+ const doc=await getPdfDoc(q.bookId);
+ const page=await doc.getPage(q.page);
+ const vp=page.getViewport({scale});
+
+ const canvas=document.createElement('canvas');
+ canvas.width=Math.ceil(vp.width);
+ canvas.height=Math.ceil(vp.height);
+
+ const ctx=canvas.getContext('2d');
+ ctx.imageSmoothingEnabled=true;
+ ctx.imageSmoothingQuality='high';
+ await page.render({canvasContext:ctx,viewport:vp}).promise;
+
+ const c=q.crop;
+ if(!c) throw new Error('문제 크롭 정보가 없습니다.');
+
+ const pageW=vp.width/scale;
+ const pageH=vp.height/scale;
+ const qMid=(c.x0+c.x1)/2;
+ const isLeftCol=qMid<pageW/2;
+
+ // 같은 페이지/같은 컬럼에 있는 '다음 문제 자체의 시작 경계'를 찾는다.
+ // 다음 문제가 묶음이면 q.crop.y0가 공통질문 시작점이므로
+ // 현재 문제 아래에 다음 묶음 질문이 딸려오는 것을 막을 수 있다.
+ const sameColQs=(state.questions||[])
+   .filter(x=>x.bookId===q.bookId && x.page===q.page && x.crop && x.key!==q.key)
+   .filter(x=>{
+     const xm=(x.crop.x0+x.crop.x1)/2;
+     return (xm<pageW/2)===isLeftCol;
+   })
+   .sort((a,b)=>a.crop.y0-b.crop.y0);
+
+ const nextQ=sameColQs.find(x=>x.crop.y0>c.y0+1);
+
+ // 좌우는 현재 문제에 저장된 컬럼 경계를 절대 넘지 않는다.
+ // 따라서 옆 컬럼 문제는 들어올 수 없다.
+ const x0=Math.max(0,Math.min(pageW,c.x0));
+ const x1=Math.max(x0+1,Math.min(pageW,c.x1));
+
+ // 기본은 저장된 현재 문제 시작 경계를 그대로 사용한다.
+ // RPM 미적분 p.81 0521~0523 묶음은 공통 질문 첫 줄이 위에서 잘리는 사례가 있어
+ // 기존 저장 배율/위치값은 건드리지 않고, 원본 크롭 영역만 위로 28pt 더 확보한다.
+ const bookForCrop=(state.books||[]).find(b=>b.id===q.bookId);
+ const isRpm521523Bundle=
+   q?.bundle &&
+   String(q?.id||'')==='0521~0523' &&
+   Number(q?.page)===81 &&
+   isRpmCalculusBook(bookForCrop);
+ const y0=Math.max(0,Math.min(pageH,c.y0-(isRpm521523Bundle?28:0)));
+
+ // 아래쪽은
+ // 1) 현재 q.crop.y1
+ // 2) 다음 문제의 q.crop.y0 직전
+ // 중 더 위쪽을 사용한다.
+ // 즉 다음 문제의 질문/헤더/묶음지시문이 절대 섞이지 않게 한다.
+ let y1=Math.max(y0+1,Math.min(pageH,c.y1));
+ if(nextQ){
+   y1=Math.min(y1,Math.max(y0+1,nextQ.crop.y0-5));
+ }
+
+ const sx=Math.floor(x0*scale);
+ const sy=Math.floor(y0*scale);
+ const ex=Math.ceil(x1*scale);
+ const ey=Math.ceil(y1*scale);
+ const sw=Math.max(1,ex-sx);
+ const sh=Math.max(1,ey-sy);
+
+ const out=document.createElement('canvas');
+ out.width=sw;
+ out.height=sh;
+
+ const outCtx=out.getContext('2d');
+ outCtx.imageSmoothingEnabled=true;
+ outCtx.imageSmoothingQuality='high';
+ outCtx.fillStyle='#fff';
+ outCtx.fillRect(0,0,sw,sh);
+ outCtx.drawImage(canvas,sx,sy,sw,sh,0,0,sw,sh);
+
+  const viewOverride=getConfirmedViewOverride(q);
+  if(viewOverride?.removeLongLines){
+    removeLongHorizontalLinesOnCanvas(outCtx,sw,sh,{minWidth:100,maxHeight:24,pad:3});
+  }
+
+ // 세로 방향의 실제 문제 내용 범위만 찾아 흰 여백을 줄인다.
+ // 가로는 원본 crop 폭 전체를 자동맞춤 기준으로 사용한다.
+ // 이렇게 하면 글자 끝을 잘못 검출해서 좌우가 잘리는 일이 없다.
+ const w=out.width,h=out.height;
+ const d=outCtx.getImageData(0,0,w,h).data;
+ const rowCounts=new Array(h).fill(0);
+
+ for(let yy=0;yy<h;yy++){
+   for(let xx=0;xx<w;xx++){
+     const i=(yy*w+xx)*4;
+     const r=d[i],g=d[i+1],b=d[i+2],a=d[i+3];
+     const lum=(r+g+b)/3;
+     if(a>8 && lum<247) rowCounts[yy]++;
+   }
+ }
+
+ const rowTh=Math.max(1,Math.floor(w*0.0025));
+ let top=0,bottom=h-1;
+ while(top<h-1 && rowCounts[top]<=rowTh)top++;
+ while(bottom>top && rowCounts[bottom]<=rowTh)bottom--;
+
+ // 위아래 글자 안전 여백
+ top=Math.max(0,top-(q.bundle?14:10));
+ bottom=Math.min(h-1,bottom+(q.bundle?16:14));
+
+ if(bottom-top<20){
+   top=0;
+   bottom=h-1;
+ }
+
+ problemFitMetaCache.set(ck,{
+   x:0,
+   y:top,
+   width:w,
+   height:Math.max(1,bottom-top+1)
+ });
+
+ const url=out.toDataURL('image/png');
+ imageCache.set(ck,url);
+ return url;
+}
+
+
+
+const C1_CONFIRMED_VIEW_OVERRIDES={
+ '0001':{zoom:1.12,removeLongLines:true},
+ '0003':{zoom:1.12},
+ '0005':{zoom:1.16},
+ '0007':{zoom:1.12},
+ '0009':{zoom:1.16},
+ '0011':{zoom:1.12},
+ '0013':{zoom:1.12},
+ '0015':{zoom:1.12},
+ '0017':{zoom:1.12},
+ '0019':{zoom:1.12},
+ '0021':{zoom:1.12},
+ '0023':{zoom:1.12},
+ '0025':{zoom:1.12},
+ '0027':{zoom:1.12},
+ '0029':{zoom:1.12}
+};
+
+function normalizeProblemId(id){
+ const digits=String(id||'').replace(/\D/g,'');
+ return digits ? digits.padStart(4,'0') : String(id||'').trim();
+}
+function normalizeBookText(s){
+ return String(s||'').replace(/\s+/g,'').toLowerCase();
+}
+function isC1CalculusBook(bookOrQuestion){
+ let book=bookOrQuestion;
+ if(bookOrQuestion && bookOrQuestion.bookId && !bookOrQuestion.name){
+   book=state.books.find(b=>b.id===bookOrQuestion.bookId) || bookOrQuestion;
+ }
+ const joined=normalizeBookText((book?.name||'')+' '+(book?.fileName||''));
+ return joined.includes('미적분1c1') || joined.includes('미적분ic1') || joined.includes('c1');
+}
+function getConfirmedViewOverride(q){
+ if(!q || !isC1CalculusBook(q)) return null;
+ const pid=normalizeProblemId(q.id);
+ const num=parseInt(pid,10);
+ if(!(num>=1 && num<=30)) return null;
+ return C1_CONFIRMED_VIEW_OVERRIDES[pid] || null;
+}
+
+const C1_PAGE_VIEW_OVERRIDES={
+ '24:37':{zoom:1.55},
+ '26:44':{zoom:1.55},
+ '30:3':{zoom:1.55},
+ '31:6':{zoom:1.55},
+ '58:27':{zoom:1.55},
+ '61:39':{zoom:1.55},
+ '62:42':{zoom:1.55},
+ '83:21':{zoom:1.55},
+ '107:15':{zoom:1.55},
+ '108:16':{zoom:1.55}
+};
+
+const C1_TALL_PAGE_QUESTIONS=new Set([
+ '58:28',
+ '62:42',
+ '83:22'
+]);
+
+// 사용자가 추가로 지정한 '페이지:문제번호' 세로 2칸 문제.
+// 교재별로 저장해둔 확대/이동값은 건드리지 않고 레이아웃만 세로 2칸으로 바꾼다.
+const USER_FORCED_TALL_PAGE_QUESTIONS=new Set([
+ '27:56',
+ '27:57',
+ '5:91',
+ '85:45',
+ '85:44',
+ '80:23',
+ '85:43',
+ '85:42',
+ '109:21',
+ '120:17'
+]);
+
+function c1PageQuestionKey(q){
+ if(!q || !isC1CalculusBook(q)) return '';
+ const n=parseInt(normalizeProblemId(q.id),10);
+ return `${Number(q.page)||0}:${Number.isFinite(n)?n:String(q.id||'')}`;
+}
+
+function getC1PageViewOverride(q){
+ const key=c1PageQuestionKey(q);
+ return key ? (C1_PAGE_VIEW_OVERRIDES[key]||null) : null;
+}
+
+function isForcedTallC1Question(q){
+ const key=c1PageQuestionKey(q);
+ return !!key && C1_TALL_PAGE_QUESTIONS.has(key);
+}
+
+function genericPageQuestionKey(q){
+ if(!q) return '';
+ const digits=String(q.id||'').match(/\d+/);
+ const n=digits ? parseInt(digits[0],10) : NaN;
+ return `${Number(q.page)||0}:${Number.isFinite(n)?n:String(q.id||'')}`;
+}
+
+function isUserForcedTallQuestion(q){
+ const key=genericPageQuestionKey(q);
+ return !!key && USER_FORCED_TALL_PAGE_QUESTIONS.has(key);
+}
+
+function getDefaultProblemZoom(q){
+ // The user's saved per-problem adjustment is applied later and always wins.
+ // These page-specific defaults only affect questions without a saved adjustment.
+ const pageOverride=getC1PageViewOverride(q);
+ if(pageOverride?.zoom) return pageOverride.zoom;
+ return getConfirmedViewOverride(q)?.zoom || 1;
+}
+function removeLongHorizontalLinesOnCanvas(ctx,w,h,{minWidth=150,maxHeight=20,pad=3}={}){
+ const img=ctx.getImageData(0,0,w,h);
+ const data=img.data;
+ const mask=new Uint8Array(w*h);
+ for(let i=0;i<w*h;i++){
+   const o=i*4;
+   const lum=(data[o]+data[o+1]+data[o+2])/3;
+   if(data[o+3]>8 && lum<245) mask[i]=1;
+ }
+ const visited=new Uint8Array(w*h);
+ const queueX=new Int32Array(w*h);
+ const queueY=new Int32Array(w*h);
+ const dirs=[[1,0],[-1,0],[0,1],[0,-1]];
+   
+ for(let y=0;y<h;y++){
+   for(let x=0;x<w;x++){
+     const start=y*w+x;
+     if(!mask[start] || visited[start]) continue;
+     let head=0,tail=0;
+     queueX[tail]=x; queueY[tail]=y; tail++;
+     visited[start]=1;
+     let minx=x,maxx=x,miny=y,maxy=y;
+     while(head<tail){
+       const cx=queueX[head], cy=queueY[head]; head++;
+       if(cx<minx) minx=cx; if(cx>maxx) maxx=cx;
+       if(cy<miny) miny=cy; if(cy>maxy) maxy=cy;
+       for(const [dx,dy] of dirs){
+         const nx=cx+dx, ny=cy+dy;
+         if(nx<0||ny<0||nx>=w||ny>=h) continue;
+         const ni=ny*w+nx;
+         if(mask[ni] && !visited[ni]){
+           visited[ni]=1;
+           queueX[tail]=nx; queueY[tail]=ny; tail++;
+         }
+       }
+     }
+     const bw=maxx-minx+1;
+     const bh=maxy-miny+1;
+     if(bw>minWidth && bh<maxHeight){
+       const x0=Math.max(0,minx-pad), y0=Math.max(0,miny-pad);
+       const x1=Math.min(w-1,maxx+pad), y1=Math.min(h-1,maxy+pad);
+       ctx.fillStyle='#fff';
+       ctx.fillRect(x0,y0,x1-x0+1,y1-y0+1);
+     }
+   }
+ }
+}
+
+const RPM_CALC_COMMON_RANGES=[[1, 4], [5, 6], [7, 8], [9, 10], [13, 16], [17, 20], [21, 23], [24, 25], [26, 27], [28, 29], [30, 31], [113, 115], [116, 119], [120, 125], [126, 128], [129, 132], [133, 136], [138, 140], [143, 144], [205, 208], [210, 213], [214, 215], [216, 218], [219, 221], [224, 226], [228, 230], [231, 233], [235, 238], [239, 240], [241, 243], [330, 331], [332, 333], [334, 336], [337, 338], [340, 341], [342, 343], [405, 409], [412, 414], [415, 417], [418, 421], [513, 516], [521, 523], [607, 609], [610, 611], [612, 614], [615, 621], [622, 623], [690, 695], [696, 698], [699, 701], [702, 705], [706, 707], [708, 709], [710, 711], [801, 802], [803, 804], [805, 807], [809, 810], [812, 813]];
+
+function isRpmCalculusBook(book){
+ const s=((book?.name||'')+' '+(book?.fileName||'')).replace(/\s+/g,'').toLowerCase();
+ return s.includes('rpm') && (s.includes('미적분') || s.includes('calculus'));
+}
+
+function normalizeRpmCalculusBundles(){
+ let changed=false;
+
+ for(const book of (state.books||[])){
+   if(!isRpmCalculusBook(book)) continue;
+
+   let bqs=(state.questions||[]).filter(q=>q.bookId===book.id);
+   if(!bqs.length) continue;
+
+   // Build common-question bundles from existing individual questions.
+   for(const [a,b] of RPM_CALC_COMMON_RANGES){
+     const id=`${String(a).padStart(4,'0')}~${String(b).padStart(4,'0')}`;
+
+     // If already bundled, do nothing.
+     if(bqs.some(q=>q.bundle && q.id===id)) continue;
+
+     const memberIds=[];
+     for(let n=a;n<=b;n++) memberIds.push(String(n).padStart(4,'0'));
+
+     const members=memberIds
+       .map(mid=>bqs.find(q=>!q.bundle && String(q.id)===mid))
+       .filter(Boolean);
+
+     if(members.length!==memberIds.length) continue;
+
+     members.sort((x,y)=>x.page-y.page || (x.crop?.y0||0)-(y.crop?.y0||0));
+
+     // Common ranges in RPM are on one page / one column.
+     const first=members[0], last=members[members.length-1];
+     if(first.page!==last.page) continue;
+
+     const x0=Math.min(...members.map(q=>q.crop?.x0??0));
+     const x1=Math.max(...members.map(q=>q.crop?.x1??0));
+     const extraTop=(id==='0521~0523' && Number(first.page)===81)?70:42;
+     const y0=Math.max(8,(first.crop?.y0??0)-extraTop); // include common instruction above first item
+     const y1=Math.max(...members.map(q=>q.crop?.y1??0));
+
+     const bundle={
+       key:`${book.id}:bundle:${id}:p${first.page}`,
+       bookId:book.id,
+       id,
+       members:memberIds,
+       page:first.page,
+       bundle:true,
+       crop:{x0,y0,x1,y1}
+     };
+
+     // Replace individual member questions with one bundle question.
+     const memberKeys=new Set(members.map(q=>q.key));
+     state.questions=state.questions.filter(q=>!memberKeys.has(q.key));
+     state.questions.push(bundle);
+
+     // Move existing error registrations on any member to the bundle.
+     const related=(state.errors||[]).filter(e=>memberKeys.has(e.questionKey));
+     if(related.length){
+       const grouped=new Map();
+       for(const e of related){
+         const k=`${e.studentId}|${e.firstDate}`;
+         if(!grouped.has(k)) grouped.set(k,[]);
+         grouped.get(k).push(e);
+       }
+
+       for(const [k,errs] of grouped){
+         const keep=errs[0];
+         keep.questionKey=bundle.key;
+         keep.problemId=bundle.id;
+         keep.bookId=book.id;
+         // remove any duplicate member registrations from the same student/date
+         const removeIds=new Set(errs.slice(1).map(e=>e.id));
+         state.errors=state.errors.filter(e=>!removeIds.has(e.id));
+       }
+     }
+
+     changed=true;
+     bqs=(state.questions||[]).filter(q=>q.bookId===book.id);
+   }
+ }
+
+ if(changed){
+   localStorage.setItem(LS_KEY,JSON.stringify(state));
+ }
+ return changed;
+}
+
+function renderSelectors(){
+ const studentOpts=state.students.filter(s=>s.status!=='퇴원').map(s=>`<option value="${s.id}">${esc(s.name)} · ${esc(s.school)} ${esc(s.grade)}</option>`).join('');
+ ['rStudent','hStudent','gStudent'].forEach(id=>{const el=$(id),v=el.value;el.innerHTML='<option value="">선택</option>'+studentOpts;if([...el.options].some(o=>o.value===v))el.value=v});
+ const bookOpts=state.books.map(b=>`<option value="${b.id}">${esc(b.name)}</option>`).join('');
+ const rb=$('rBook'),v=rb.value;rb.innerHTML='<option value="">교재 선택</option>'+bookOpts;if([...rb.options].some(o=>o.value===v))rb.value=v;
+}
+function renderDashboard(){
+ $('sBooks').textContent=state.books.length;$('sQuestions').textContent=state.questions.length;$('sErrors').textContent=state.errors.length;$('sToday').textContent=state.errors.filter(e=>status(e)==='TODAY').length;
+ $('dashStudents').innerHTML=state.students.map(s=>{const es=state.errors.filter(e=>e.studentId===s.id);return `<div class="checkrow"><div style="flex:1"><b>${esc(s.name)}</b> <span class="muted small">${esc(s.school)} ${esc(s.grade)}</span></div><span class="badge">오답 ${es.length}</span></div>`}).join('')||'<span class="muted">학생이 없습니다.</span>';
+}
+function renderStudents(){
+ $('studentTbody').innerHTML=state.students.map(s=>`<tr><td><b>${esc(s.name)}</b></td><td>${esc(s.school)}</td><td>${esc(s.grade)}</td><td>${esc(s.className||'')}</td><td>${esc(s.status||'재학')}</td><td><button class="btn danger" onclick="deleteStudent('${s.id}')">삭제</button></td></tr>`).join('');
+}
+function renderBooks(){
+ $('bookList').innerHTML=state.books.map(b=>`<div class="book"><div><b>${esc(b.name)}</b><div class="muted small">${esc(b.fileName)} · ${b.pages}페이지 · 문제 ${state.questions.filter(q=>q.bookId===b.id).length}개 · 묶음 ${state.questions.filter(q=>q.bookId===b.id&&q.bundle).length}개</div></div><button class="btn danger" onclick="removeBook('${b.id}')">삭제</button></div>`).join('')||'<div class="muted">아직 업로드한 PDF가 없습니다.</div>';
+}
+function errorCard(e,actions=false){
+ const q=state.questions.find(q=>q.key===e.questionKey);
+ return `<div class="error-card"><div class="error-head"><div><b class="mono">${esc(q?.id||e.problemId)}</b> ${q?.bundle?'<span class="badge bundle">묶음문항</span>':''}<span class="muted small"> · ${esc(studentName(e.studentId))} · ${esc(bookName(e.bookId))} · 최초 오답일 ${e.firstDate}</span></div>${statusBadge(status(e))}</div><div style="margin-top:7px"><b>오답원인:</b> ${esc(e.cause)}${e.memo?' · '+esc(e.memo):''}</div>${actions&&status(e)!=='COMPLETE'?`<div class="stage"><span class="small muted">${stage(e)+1}차 결과:</span><button class="ok" onclick="markResult('${e.id}','O')">O 정답</button><button class="x" onclick="markResult('${e.id}','X')">X 오답</button></div>`:''}</div>`;
+}
+function renderRecent(){$('recentErrors').innerHTML=state.errors.slice().sort((a,b)=>b.createdAt.localeCompare(a.createdAt)).slice(0,6).map(e=>errorCard(e)).join('')||'<div class="muted">등록된 오답이 없습니다.</div>'}
+function renderHistory(){let es=state.errors.slice().sort((a,b)=>b.firstDate.localeCompare(a.firstDate));if($('hStudent').value)es=es.filter(e=>e.studentId===$('hStudent').value);$('historyList').innerHTML=es.map(e=>errorCard(e,true)).join('')||'<div class="card muted">오답 이력이 없습니다.</div>'}
+function renderToday(){const es=state.errors.filter(e=>['TODAY','OVERDUE'].includes(status(e)));$('todayList').innerHTML=es.map(e=>errorCard(e,true)).join('')||'<div class="card muted">오늘 재시험 대상이 없습니다.</div>'}
+function renderGenerator(){const sid=$('gStudent').value;const es=state.errors.filter(e=>!sid||e.studentId===sid).sort((a,b)=>b.firstDate.localeCompare(a.firstDate));$('selectProblems').innerHTML=es.map(e=>{const q=state.questions.find(q=>q.key===e.questionKey);return `<label class="checkrow"><input class="gcheck" type="checkbox" value="${e.id}"><div><b class="mono">${esc(q?.id||'')}</b> ${q?.bundle?'<span class="badge bundle">묶음</span>':''}<span class="muted small"> · ${esc(bookName(e.bookId))} · ${e.firstDate}</span></div></label>`}).join('')||'<div class="muted">선택할 오답이 없습니다.</div>'}
+
+async function renderQuestionBank(){
+ const box=$('questionGrid');
+ const bookId=$('rBook').value;
+ if(!bookId){box.innerHTML='<div class="muted">교재를 먼저 선택하세요.</div>';return}
+ let qs=state.questions.filter(q=>q.bookId===bookId);
+ const term=$('qSearch').value.trim();
+ if(term)qs=qs.filter(q=>q.id.includes(term));
+ const filter=$('qFilter').value;
+ if(filter==='bundle')qs=qs.filter(q=>q.bundle);
+ if(filter==='single')qs=qs.filter(q=>!q.bundle);
+ qs.sort((a,b)=>{
+   function firstNum(id){
+     const m=String(id||'').match(/\d+/);
+     return m?parseInt(m[0],10):Number.MAX_SAFE_INTEGER;
+   }
+
+   // 1순위: PDF 페이지 순서
+   if(a.page!==b.page) return a.page-b.page;
+
+   // 2순위: 같은 페이지에서는 문제번호 1,2,3,4... 순서
+   const an=firstNum(a.id), bn=firstNum(b.id);
+   if(an!==bn) return an-bn;
+
+   // 같은 번호가 겹치면 실제 위치 순으로 안정 정렬
+   if((a.crop?.y0||0)!==(b.crop?.y0||0)) return (a.crop?.y0||0)-(b.crop?.y0||0);
+   return (a.crop?.x0||0)-(b.crop?.x0||0);
+ });
+
+ const sid=$('rStudent').value;
+ const date=$('rDate').value;
+ const selectedKeys=new Set(
+   state.errors
+     .filter(e=>e.studentId===sid && e.firstDate===date && e.bookId===bookId)
+     .map(e=>e.questionKey)
+ );
+
+ box.innerHTML=qs.map(q=>`
+   <button type="button" class="numbtn ${q.bundle?'bundle':''} ${selectedKeys.has(q.key)?'selected':''}" data-q="${q.key}">
+     <span class="checkmark">✓</span>
+     ${esc(q.id)}
+     <span class="mini">p.${q.page}${q.bundle?' · 공통문제 묶음':''}</span>
+   </button>
+ `).join('')||'<div class="muted">문제가 없습니다.</div>';
+ box.querySelectorAll('.numbtn').forEach(el=>el.onclick=()=>registerQuestion(el.dataset.q,el));
+}
+function safeId(s){return btoa(unescape(encodeURIComponent(s))).replace(/[^A-Za-z0-9]/g,'').slice(0,40)}
+
+function registerQuestion(qkey,btn=null){
+ const sid=$('rStudent').value,date=$('rDate').value;
+ if(!sid)return toast('학생을 선택하세요.');
+ if(!date)return toast('최초 오답일을 선택하세요.');
+
+ const q=state.questions.find(x=>x.key===qkey);
+ if(!q)return;
+
+ const existing=state.errors.find(
+   e=>e.studentId===sid &&
+      e.firstDate===date &&
+      e.bookId===q.bookId &&
+      e.questionKey===qkey
+ );
+
+ if(existing){
+   // 두 번째 클릭: 즉시 선택 해제
+   if(btn) btn.classList.remove('selected');
+   state.errors=state.errors.filter(e=>e.id!==existing.id);
+   saveState();
+   renderQuestionBank();
+   renderGenerator();
+   renderHistory();
+   renderToday();
+   toast(q.bundle?`${q.id} 묶음문항 오답등록 해제`:`${q.id} 오답등록 해제`);
+   return;
+ }
+
+ // 첫 번째 클릭: 즉시 선택 표시
+ if(btn) btn.classList.add('selected');
+
+ state.errors.push({
+   id:'E'+Date.now()+Math.random().toString(36).slice(2,5),
+   studentId:sid,
+   bookId:q.bookId,
+   questionKey:q.key,
+   problemId:q.id,
+   firstDate:date,
+   cause:$('rCause').value,
+   memo:$('rMemo').value.trim(),
+   results:[],
+   createdAt:new Date().toISOString()
+ });
+
+ $('rMemo').value='';
+ saveState();
+ renderQuestionBank();
+ renderGenerator();
+ renderHistory();
+ renderToday();
+ toast(q.bundle?`${q.id} 묶음문항을 한 문제로 등록했습니다.`:`${q.id} 오답 등록 완료`);
+}
+window.markResult=(id,res)=>{const e=state.errors.find(x=>x.id===id);if(!e||stage(e)>=5)return;e.results=e.results||[];e.results.push({result:res,date:todayISO()});saveState();toast(`${stage(e)}차 결과 저장`)};
+window.deleteStudent=id=>{if(!confirm('학생을 삭제할까요?'))return;state.students=state.students.filter(s=>s.id!==id);saveState()};
+window.removeBook=async id=>{if(!confirm('교재와 해당 문제은행을 삭제할까요? 오답 기록도 함께 삭제됩니다.'))return;state.books=state.books.filter(b=>b.id!==id);const keys=new Set(state.questions.filter(q=>q.bookId===id).map(q=>q.key));state.questions=state.questions.filter(q=>q.bookId!==id);state.errors=state.errors.filter(e=>!keys.has(e.questionKey));await deletePdf(id);pdfDocCache.delete(id);saveState()};
+
+function renderAll(){renderSelectors();renderDashboard();renderStudents();renderBooks();renderRecent();renderHistory();renderToday();renderGenerator();renderQuestionBank()}
+document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{document.querySelectorAll('nav button').forEach(x=>x.classList.remove('active'));b.classList.add('active');document.querySelectorAll('.section').forEach(x=>x.classList.remove('active'));$(b.dataset.tab).classList.add('active');$('pageTitle').textContent=b.textContent;if(b.dataset.tab==='register')renderQuestionBank();if(b.dataset.tab==='history')renderHistory();if(b.dataset.tab==='today')renderToday();if(b.dataset.tab==='generator')renderGenerator()});
+
+$('rDate').value=todayISO();
+$('addStudent').onclick=()=>{const name=$('stName').value.trim();if(!name)return toast('학생명을 입력하세요.');state.students.push({id:'S'+Date.now(),name,school:$('stSchool').value.trim(),grade:$('stGrade').value.trim(),className:$('stClass').value.trim(),status:'재학'});['stName','stSchool','stGrade','stClass'].forEach(id=>$(id).value='');saveState();toast('학생을 추가했습니다.')};
+$('prepareWantPdf').onclick=async()=>{try{await prepareWantPdf($('sourcePdfFile').files[0])}catch(e){console.error(e);alert('핀셋관리용 파일 정리 중 오류가 발생했습니다.\n'+e.message)}};
+$('sourcePdfFile').onchange=()=>{setPreparedFile(null);$('preparedBox').classList.add('hidden');$('prepareStatus').classList.add('hidden')};
+$('pdfFile').onchange=()=>{$('analyzePdf').disabled=!$('pdfFile').files[0]};
+$('analyzePdf').onclick=async()=>{try{$('analyzePdf').disabled=true;await analyzeUploadedPdf($('pdfFile').files[0],$('bookName').value.trim())}catch(e){console.error(e);alert('PDF 분석 중 오류가 발생했습니다.\n'+e.message)}finally{$('analyzePdf').disabled=!$('pdfFile').files[0]}};
+$('rBook').onchange=renderQuestionBank;$('qSearch').oninput=renderQuestionBank;$('qFilter').onchange=renderQuestionBank;$('rStudent').onchange=renderQuestionBank;$('rDate').onchange=renderQuestionBank;
+$('hStudent').onchange=renderHistory;$('hAll').onclick=()=>{$('hStudent').value='';renderHistory()};$('gStudent').onchange=renderGenerator;
+$('selectAll').onclick=()=>document.querySelectorAll('.gcheck').forEach(x=>x.checked=true);$('selectNone').onclick=()=>document.querySelectorAll('.gcheck').forEach(x=>x.checked=false);
+$('deleteSelectedErrors').onclick=()=>{
+ const ids=[...document.querySelectorAll('.gcheck:checked')].map(x=>x.value);
+ if(!ids.length) return toast('삭제할 오답을 선택하세요.');
+ if(!confirm(`선택한 오답 ${ids.length}개를 삭제할까요?\n삭제한 오답 기록은 복구되지 않습니다.`)) return;
+ const idSet=new Set(ids);
+ state.errors=state.errors.filter(e=>!idSet.has(e.id));
+ saveState();
+ renderGenerator();
+ $('testPreview').innerHTML='';
+ toast(`오답 ${ids.length}개를 삭제했습니다.`);
+};
+
+
+function ensureViewAdjustments(){
+ if(!state.viewAdjustments || typeof state.viewAdjustments!=='object'){
+   state.viewAdjustments={};
+ }
+ return state.viewAdjustments;
+}
+
+function viewAdjustKey(q){
+ if(!q) return '';
+ return `${q.bookId}::${q.key}`;
+}
+
+function getSavedViewAdjustment(q){
+ const key=viewAdjustKey(q);
+ if(!key) return null;
+ const all=ensureViewAdjustments();
+ const v=all[key];
+ if(!v || typeof v!=='object') return null;
+ return {
+   zoom:Number.isFinite(Number(v.zoom))?Number(v.zoom):1,
+   x:Number.isFinite(Number(v.x))?Number(v.x):0,
+   y:Number.isFinite(Number(v.y))?Number(v.y):0
+ };
+}
+
+function saveCurrentProblemAdjustment(card){
+ if(!card) return;
+ const qkey=card.dataset.questionKey||'';
+ const q=state.questions.find(x=>x.key===qkey);
+ if(!q) return toast('문제 정보를 찾지 못했습니다.');
+
+ const zoom=parseFloat(card.dataset.zoom||'1');
+ const x=parseFloat(card.dataset.x||'0');
+ const y=parseFloat(card.dataset.y||'0');
+
+ ensureViewAdjustments()[viewAdjustKey(q)]={zoom,x,y,updatedAt:new Date().toISOString()};
+ saveState();
+ card.dataset.saved='1';
+ updateSidePanel();
+ toast(`${q.id} 조정값을 저장했습니다.`);
+}
+
+function clearCurrentProblemAdjustment(card){
+ if(!card) return;
+ const qkey=card.dataset.questionKey||'';
+ const q=state.questions.find(x=>x.key===qkey);
+ if(!q) return toast('문제 정보를 찾지 못했습니다.');
+
+ const key=viewAdjustKey(q);
+ const all=ensureViewAdjustments();
+ if(all[key]) delete all[key];
+ saveState();
+
+ const baseZoom=parseFloat(card.dataset.baseZoom||card.dataset.defaultZoom||'1');
+ card.dataset.zoom=String(baseZoom);
+ card.dataset.defaultZoom=String(baseZoom);
+ card.dataset.x='0';
+ card.dataset.y='0';
+ card.dataset.saved='0';
+ applyProblemView(card);
+ updateSidePanel();
+ toast(`${q.id} 저장된 조정값을 초기화했습니다.`);
+}
+
+window.saveSelectedProblemAdjustment=()=>{
+ if(!selectedPreviewCard) return toast('문제를 먼저 클릭하세요.');
+ saveCurrentProblemAdjustment(selectedPreviewCard);
+};
+
+window.clearSelectedProblemAdjustment=()=>{
+ if(!selectedPreviewCard) return toast('문제를 먼저 클릭하세요.');
+ clearCurrentProblemAdjustment(selectedPreviewCard);
+};
+
+let selectedPreviewCard=null;
+
+function updateSidePanel(){
+ const nameEl=document.getElementById('selectedProblemName');
+ const zoomEl=document.getElementById('selectedProblemZoom');
+ if(!nameEl || !zoomEl) return;
+ if(!selectedPreviewCard){
+   nameEl.textContent='선택된 문제 없음';
+   zoomEl.textContent='-';
+   return;
+ }
+ const qText=selectedPreviewCard.querySelector('h3')?.innerText?.trim() || '선택된 문제';
+ const zoom=parseFloat(selectedPreviewCard.dataset.zoom||'1');
+ const saved=selectedPreviewCard.dataset.saved==='1';
+ nameEl.textContent=qText+(saved?' · 저장됨':'');
+ zoomEl.textContent=Math.round(zoom*100)+'%';
+}
+
+function selectProblemCard(card){
+ if(!card) return;
+ document.querySelectorAll('.test-problem.selected-problem').forEach(el=>el.classList.remove('selected-problem'));
+ selectedPreviewCard=card;
+ card.classList.add('selected-problem');
+ updateSidePanel();
+}
+
+function applyProblemView(card){
+ const img=card?.querySelector('.preview-problem-img');
+ const wrap=card?.querySelector('.problem-image-wrap');
+ if(!img || !wrap) return;
+
+ const zoom=parseFloat(card.dataset.zoom||'1');
+ const userX=parseFloat(card.dataset.x||'0');
+ const userY=parseFloat(card.dataset.y||'0');
+
+ const nw=img.naturalWidth||1;
+ const nh=img.naturalHeight||1;
+ const ww=Math.max(1,wrap.clientWidth);
+ const wh=Math.max(1,wrap.clientHeight);
+
+ const key=card.dataset.viewKey||'';
+ const meta=problemFitMetaCache.get(key);
+
+ // 모든 문제의 시작 높이를 통일하기 위해 세로 중앙정렬 대신
+ // 위쪽 기준 정렬을 사용한다. 남는 여백은 아래로 보낸다.
+ const topStart=Math.max(6,Math.round(wh*0.025));
+ let scale, autoX, autoY;
+
+ if(meta && meta.width>0 && meta.height>0){
+   const maxW=ww*0.97;
+   const maxH=wh*0.96;
+   scale=Math.min(maxW/meta.width, maxH/meta.height);
+
+   // 가로는 가운데, 세로는 시작점 고정
+   autoX=(ww-meta.width*scale)/2 - meta.x*scale;
+   autoY=topStart - meta.y*scale;
+ }else{
+   scale=Math.min((ww*0.97)/nw,(wh*0.96)/nh);
+   autoX=(ww-nw*scale)/2;
+   autoY=topStart;
+ }
+
+ const finalScale=scale*zoom;
+
+ if(meta && meta.width>0 && meta.height>0){
+   autoX=(ww-meta.width*finalScale)/2 - meta.x*finalScale;
+   autoY=topStart - meta.y*finalScale;
+ }else{
+   autoX=(ww-nw*finalScale)/2;
+   autoY=topStart;
+ }
+
+ img.style.transform=`translate(${autoX+userX}px,${autoY+userY}px) scale(${finalScale})`;
+
+ if(card===selectedPreviewCard) updateSidePanel();
+}
+
+function adjustProblemCard(card,action){
+ if(!card) return;
+ let zoom=parseFloat(card.dataset.zoom||'1');
+ let x=parseFloat(card.dataset.x||'0');
+ let y=parseFloat(card.dataset.y||'0');
+ const defaultZoom=parseFloat(card.dataset.defaultZoom||'1');
+
+ const step=14;
+ if(action==='zoomIn') zoom=Math.min(3.2,zoom+0.10);
+ if(action==='zoomOut') zoom=Math.max(0.45,zoom-0.10);
+ if(action==='left') x-=step;
+ if(action==='right') x+=step;
+ if(action==='up') y-=step;
+ if(action==='down') y+=step;
+ if(action==='reset'){
+   zoom=defaultZoom;
+   const saved=card.dataset.saved==='1';
+   if(saved){
+     const qkey=card.dataset.questionKey||'';
+     const q=state.questions.find(v=>v.key===qkey);
+     const adj=getSavedViewAdjustment(q);
+     x=adj?.x||0;
+     y=adj?.y||0;
+   }else{
+     x=0; y=0;
+   }
+ }
+
+ card.dataset.zoom=String(zoom);
+ card.dataset.x=String(x);
+ card.dataset.y=String(y);
+ applyProblemView(card);
+}
+
+window.adjustSelectedProblem=(action)=>{
+ if(!selectedPreviewCard){
+   toast('문제를 먼저 클릭하세요.');
+   return;
+ }
+ adjustProblemCard(selectedPreviewCard,action);
+};
+
+function setupPreviewControls(){
+ const preview=document.getElementById('testPreview');
+ if(!preview) return;
+
+ // 문제 클릭 선택
+ preview.querySelectorAll('.test-problem').forEach(card=>{
+   card.addEventListener('click',(ev)=>{
+     ev.stopPropagation();
+     selectProblemCard(card);
+   });
+ });
+
+ // 우측 고정 패널 버튼
+ preview.querySelectorAll('.preview-sidepanel [data-action]').forEach(btn=>{
+   btn.addEventListener('click',(ev)=>{
+     ev.preventDefault();
+     ev.stopPropagation();
+     const action=btn.dataset.action;
+     window.adjustSelectedProblem(action);
+   });
+ });
+
+ const scrollBtn=preview.querySelector('#scrollSelectedProblem');
+ if(scrollBtn){
+   scrollBtn.addEventListener('click',(ev)=>{
+     ev.preventDefault();
+     ev.stopPropagation();
+     if(!selectedPreviewCard){
+       toast('문제를 먼저 클릭하세요.');
+       return;
+     }
+     selectedPreviewCard.scrollIntoView({behavior:'smooth',block:'center'});
+   });
+ }
+}
+
+window.nudgeProblemWithWheel=(ev,img)=>{
+ if(!ev.ctrlKey) return;
+ ev.preventDefault();
+ const card=img.closest('.test-problem');
+ if(!card) return;
+ selectProblemCard(card);
+ let zoom=parseFloat(card.dataset.zoom||'1');
+ zoom += ev.deltaY<0 ? 0.05 : -0.05;
+ zoom=Math.max(0.55,Math.min(2.2,zoom));
+ card.dataset.zoom=String(zoom);
+ applyProblemView(card);
+};
+
+window.addEventListener('resize',()=>{
+ document.querySelectorAll('.test-problem').forEach(applyProblemView);
+ updateSidePanel();
+});
+
+$('makeTest').onclick=async()=>{
+ const ids=[...document.querySelectorAll('.gcheck:checked')].map(x=>x.value);
+ if(!ids.length)return toast('시험지에 넣을 문제를 선택하세요.');
+ const es=ids.map(id=>state.errors.find(e=>e.id===id)).filter(Boolean);
+ const sid=$('gStudent').value;
+ const studentText=sid?esc(studentName(sid)):'';
+ const today=todayISO();
+ const loadImageMeta=(src)=>new Promise(resolve=>{
+   if(!src) return resolve({width:0,height:0});
+   const im=new Image();
+   im.onload=()=>resolve({width:im.naturalWidth||im.width||0,height:im.naturalHeight||im.height||0});
+   im.onerror=()=>resolve({width:0,height:0});
+   im.src=src;
+ });
+
+ const chooseReadableLayout=(q,meta)=>{
+   const w=Math.max(1,meta?.width||1);
+   const h=Math.max(1,meta?.height||1);
+   const ratio=w/h;
+
+   // 기존 C1 지정 문제 + 사용자가 추가 지정한 문제는 세로 2칸 사용.
+   if(isForcedTallC1Question(q) || isUserForcedTallQuestion(q)){
+     return {kind:'tall', rows:2, cols:1};
+   }
+
+   // 기본 원칙: A4 한 페이지 = 2x2, 총 4문제 자리.
+   // 일반 문제와 그래프 없는 묶음문제는 무조건 1자리만 사용한다.
+   if(!q?.bundle){
+     return {kind:'normal', rows:1, cols:1};
+   }
+
+   // 묶음문제 중 그래프/도형이 여러 개 세로로 이어져 실제 이미지가 매우 세로로 긴 경우만
+   // 세로 2문제 자리를 사용한다.
+   // RPM에서 이미 확인된 대표적인 세로형 그래프 묶음도 명시적으로 포함.
+   const knownTallGraphBundle=/^(0113~0115|0805~0807)$/.test(String(q.id||''));
+   const clearlyTallBundle = ratio < 0.72;
+
+   if(knownTallGraphBundle || clearlyTallBundle){
+     return {kind:'tall', rows:2, cols:1};
+   }
+
+   // 그 외 모든 묶음 문제는 일반 문제와 동일하게 1자리.
+   return {kind:'normal', rows:1, cols:1};
+ };
+
+ const rendered=[];
+ for(const e of es){
+   const q=state.questions.find(q=>q.key===e.questionKey);
+   if(!q) continue;
+   let url='';
+   try{url=await cropQuestionImage(q,3)}catch(err){}
+   const meta=await loadImageMeta(url);
+   const layout=chooseReadableLayout(q,meta);
+   rendered.push({e,q,url,meta,layout});
+ }
+
+ // 2x2 시험지 그리드에 실제 모양대로 배치
+ const pages=[];
+ let page={items:[], occ:[[false,false],[false,false]]};
+
+ const findSpot=(occ,rows,cols)=>{
+   for(let r=0;r<=2-rows;r++){
+     for(let c=0;c<=2-cols;c++){
+       let ok=true;
+       for(let rr=0;rr<rows;rr++){
+         for(let cc=0;cc<cols;cc++){
+           if(occ[r+rr][c+cc]) ok=false;
+         }
+       }
+       if(ok) return {r,c};
+     }
+   }
+   return null;
+ };
+
+ const place=(pg,item)=>{
+   const {rows,cols}=item.layout;
+   const spot=findSpot(pg.occ,rows,cols);
+   if(!spot) return false;
+   for(let rr=0;rr<rows;rr++){
+     for(let cc=0;cc<cols;cc++){
+       pg.occ[spot.r+rr][spot.c+cc]=true;
+     }
+   }
+   pg.items.push({...item,row:spot.r+1,col:spot.c+1});
+   return true;
+ };
+
+ for(const item of rendered){
+   if(!place(page,item)){
+     if(page.items.length) pages.push(page);
+     page={items:[], occ:[[false,false],[false,false]]};
+     place(page,item);
+   }
+ }
+ if(page.items.length) pages.push(page);
+ let pagesHtml='';
+ let globalIndex=1;
+
+ for(let p=0;p<pages.length;p++){
+   const chunk=pages[p].items;
+   let problemsHtml='';
+   for(const item of chunk){
+     const e=item.e;
+     const q=item.q;
+     const url=item.url;
+     const cls=item.layout.kind==='normal' ? '' : ` ${item.layout.kind}`;
+     const pos=`grid-column:${item.col} / span ${item.layout.cols};grid-row:${item.row} / span ${item.layout.rows};`;
+      const baseZoom=getDefaultProblemZoom(q);
+      const savedAdj=getSavedViewAdjustment(q);
+      const forcedPageZoom=getC1PageViewOverride(q)?.zoom || 0;
+      const defaultZoom=savedAdj
+        ? Math.max(Number(savedAdj.zoom)||1, forcedPageZoom||0)
+        : baseZoom;
+      const defaultX=savedAdj?.x ?? 0;
+      const defaultY=savedAdj?.y ?? 0;
+      const savedFlag=savedAdj?'1':'0';
+      problemsHtml += `<div class="test-problem${cls}" style="${pos}" data-view-key="${esc(q.key+'@3')}" data-question-key="${esc(q.key)}" data-base-zoom="${baseZoom}" data-zoom="${defaultZoom}" data-default-zoom="${defaultZoom}" data-x="${defaultX}" data-y="${defaultY}" data-saved="${savedFlag}">
+       <h3>${globalIndex}. <span class="mono">문제번호 ${esc(q.id)}</span> <span class="problem-page">· 교재 p.${q.page}</span></h3>
+       <div class="problem-meta">최초 오답일 ${e.firstDate}</div>
+       <div class="problem-image-wrap">${url ? `<img class="preview-problem-img" src="${url}" alt="${esc(q.id)}" onload="applyProblemView(this.closest('.test-problem'))" onwheel="nudgeProblemWithWheel(event,this)">` : `<div class="note" style="width:100%">PDF 원본을 다시 업로드해야 합니다.</div>`}</div>
+     </div>`;
+     globalIndex++;
+   }
+   pagesHtml += `<div class="test-page ${p===pages.length-1?'last-page':''}">
+      <div class="sheet-header">
+        <div class="sheet-brand">
+          <img class="sheet-logo" src="data:image/png;base64,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" alt="원픽학원 로고">
+          <div class="sheet-title-wrap">
+            <div class="print-title">원픽학원 오답 TEST</div>
+          </div>
+        </div>
+        <div class="sheet-meta">
+          <div><b>학생</b> <span class="sheet-student-name">${studentText || '전체'}</span></div>
+          <div><b>출력일</b> ${today}</div>
+          <div><b>페이지</b> ${p+1} / ${pages.length}</div>
+        </div>
+      </div>
+      <div class="test-grid">${problemsHtml}</div>
+   </div>`;
+ }
+
+ $('testPreview').innerHTML=`<div class="preview-shell">
+  <div class="preview-main">
+    <div class="print-sheet">${pagesHtml}<div class="print-actions no-print">
+      <button class="btn" onclick="printTest()">프린터 인쇄</button>
+      <button class="btn primary" onclick="saveTestPdfDirect()">PDF 파일 저장</button>
+    </div></div>
+  </div>
+  <aside class="preview-sidepanel no-print">
+    <h4>문제 조정</h4>
+    <div class="side-desc">문제를 클릭해 크기·위치를 조정한 뒤 <b>이 문제 조정값 저장</b>을 누르면 다음 시험지에도 그대로 적용됩니다.</div>
+    <div class="selected-problem-box">
+      <div class="label">선택된 문제</div>
+      <div class="value" id="selectedProblemName">선택된 문제 없음</div>
+      <div class="side-zoom">현재 배율 <b id="selectedProblemZoom">-</b></div>
+    </div>
+    <div class="side-btn-grid">
+      <button type="button" data-action="zoomOut" title="축소">−</button>
+      <button type="button" data-action="reset" title="초기화">초기화</button>
+      <button type="button" data-action="zoomIn" title="확대">＋</button>
+      <button type="button" data-action="left" title="왼쪽 이동">←</button>
+      <button type="button" data-action="up" title="위로 이동">↑</button>
+      <button type="button" data-action="right" title="오른쪽 이동">→</button>
+      <button type="button" data-action="down" title="아래로 이동" style="grid-column:2 / span 1">↓</button>
+    </div>
+    <button type="button" class="side-btn-wide" onclick="saveSelectedProblemAdjustment()">이 문제 조정값 저장</button>
+    <button type="button" class="side-btn-wide" onclick="clearSelectedProblemAdjustment()">저장값 초기화</button>
+    <button type="button" class="side-btn-wide" id="scrollSelectedProblem">선택 문제로 이동</button>
+  </aside>
+</div>`;
+ setupPreviewControls();
+ const firstCard=$('testPreview').querySelector('.test-problem');
+ if(firstCard) selectProblemCard(firstCard);
+ $('testPreview').querySelectorAll('.test-problem').forEach(applyProblemView);
+ updateSidePanel();
+};
+
+window.saveTestPdfDirect=async()=>{
+ const preview=$('testPreview');
+ const pages=[...preview.querySelectorAll('.test-page')];
+ if(!pages.length){
+   toast('먼저 시험지를 생성하세요.');
+   return;
+ }
+ if(!window.html2canvas || !window.jspdf?.jsPDF){
+   alert('PDF 저장 모듈을 불러오지 못했습니다.\n인터넷 연결을 확인한 뒤 다시 실행하세요.');
+   return;
+ }
+
+ const btns=[...document.querySelectorAll('.print-actions button')];
+ btns.forEach(b=>b.disabled=true);
+ toast('PDF 파일을 만드는 중입니다...');
+
+ try{
+   const {jsPDF}=window.jspdf;
+   const pdf=new jsPDF({
+     orientation:'portrait',
+     unit:'mm',
+     format:'a4',
+     compress:true
+   });
+
+   for(let i=0;i<pages.length;i++){
+     const page=pages[i];
+
+     // A4 비율로 렌더링할 복사본을 화면 밖에 별도로 둔다.
+     const host=document.createElement('div');
+     host.style.position='fixed';
+     host.style.left='-10000px';
+     host.style.top='0';
+     host.style.width='210mm';
+     host.style.background='#fff';
+     host.style.zIndex='-1';
+
+     const clone=page.cloneNode(true);
+     clone.classList.remove('last-page');
+     clone.style.width='198mm';
+     clone.style.height='282mm';
+     clone.style.boxSizing='border-box';
+     clone.style.margin='0';
+     clone.style.background='#fff';
+     clone.style.border='0';
+     clone.style.borderRadius='0';
+     clone.style.boxShadow='none';
+     clone.style.pageBreakAfter='auto';
+     host.appendChild(clone);
+     document.body.appendChild(host);
+
+     // 복사된 이미지가 모두 로딩된 뒤 캡처
+     const imgs=[...clone.querySelectorAll('img')];
+     await Promise.all(imgs.map(img=>{
+       if(img.complete && img.naturalWidth>0) return Promise.resolve();
+       return new Promise(resolve=>{
+         const done=()=>resolve();
+         img.addEventListener('load',done,{once:true});
+         img.addEventListener('error',done,{once:true});
+         setTimeout(done,3000);
+       });
+     }));
+
+     await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
+     await new Promise(r=>setTimeout(r,80));
+
+     const canvas=await html2canvas(clone,{
+       scale:2.2,
+       backgroundColor:'#ffffff',
+       useCORS:true,
+       logging:false,
+       imageTimeout:5000,
+       removeContainer:true
+     });
+
+     host.remove();
+
+     const imgData=canvas.toDataURL('image/jpeg',0.94);
+     if(i>0) pdf.addPage('a4','portrait');
+
+     // 6mm 여백 안쪽에 198x282mm로 정확히 배치
+     pdf.addImage(imgData,'JPEG',6,6,198,282,undefined,'FAST');
+
+     // 메모리 회수
+     canvas.width=1;
+     canvas.height=1;
+   }
+
+   const sid=$('gStudent').value;
+   const sname=sid ? studentName(sid) : '전체';
+   const safeName=String(sname||'전체').replace(/[\\/:*?"<>|]/g,'_');
+   const filename=`원픽학원_오답TEST_${safeName}_${todayISO()}.pdf`;
+
+   pdf.save(filename);
+   toast('PDF 파일 저장이 완료되었습니다.');
+ }catch(err){
+   console.error(err);
+   alert('PDF 파일 생성 중 오류가 발생했습니다.\n'+(err.message||err));
+ }finally{
+   btns.forEach(b=>b.disabled=false);
+   document.querySelectorAll('body > div').forEach(el=>{
+     if(el.style?.left==='-10000px' && el.style?.width==='210mm') el.remove();
+   });
+ }
+};
+
+function applyProblemViewsForPrintRoot(printRoot,sourceSheet){
+ const printCards=[...printRoot.querySelectorAll('.test-problem')];
+ const sourceCards=[...sourceSheet.querySelectorAll('.test-problem')];
+
+ printCards.forEach((card,i)=>{
+   const img=card.querySelector('.preview-problem-img');
+   const wrap=card.querySelector('.problem-image-wrap');
+   if(!img || !wrap) return;
+
+   const srcCard=sourceCards[i];
+   const srcWrap=srcCard?.querySelector('.problem-image-wrap');
+
+   const zoom=parseFloat(card.dataset.zoom||'1');
+   const userX=parseFloat(card.dataset.x||'0');
+   const userY=parseFloat(card.dataset.y||'0');
+
+   const nw=img.naturalWidth||1;
+   const nh=img.naturalHeight||1;
+   const ww=Math.max(1,wrap.clientWidth);
+   const wh=Math.max(1,wrap.clientHeight);
+
+   const sourceW=Math.max(1,srcWrap?.clientWidth||ww);
+   const sourceH=Math.max(1,srcWrap?.clientHeight||wh);
+   const offsetScaleX=ww/sourceW;
+   const offsetScaleY=wh/sourceH;
+
+   const key=card.dataset.viewKey||'';
+   const meta=problemFitMetaCache.get(key);
+   const topStart=Math.max(6,Math.round(wh*0.025));
+
+   let scale,autoX,autoY;
+   if(meta && meta.width>0 && meta.height>0){
+     const maxW=ww*0.97;
+     const maxH=wh*0.96;
+     scale=Math.min(maxW/meta.width,maxH/meta.height);
+     const finalScale=scale*zoom;
+     autoX=(ww-meta.width*finalScale)/2-meta.x*finalScale;
+     autoY=topStart-meta.y*finalScale;
+     img.style.transform=`translate(${autoX+userX*offsetScaleX}px,${autoY+userY*offsetScaleY}px) scale(${finalScale})`;
+   }else{
+     scale=Math.min((ww*0.97)/nw,(wh*0.96)/nh);
+     const finalScale=scale*zoom;
+     autoX=(ww-nw*finalScale)/2;
+     autoY=topStart;
+     img.style.transform=`translate(${autoX+userX*offsetScaleX}px,${autoY+userY*offsetScaleY}px) scale(${finalScale})`;
+   }
+ });
+}
+
+window.printTest=async()=>{
+ const preview=$('testPreview');
+ const sheet=preview?.querySelector('.print-sheet');
+ if(!sheet){
+   toast('먼저 시험지를 생성하세요.');
+   return;
+ }
+
+ const old=document.getElementById('onepickPrintRoot');
+ if(old) old.remove();
+
+ const root=document.createElement('div');
+ root.id='onepickPrintRoot';
+ const clone=sheet.cloneNode(true);
+ clone.querySelectorAll('.no-print,.print-actions').forEach(el=>el.remove());
+ root.appendChild(clone);
+ document.body.appendChild(root);
+
+ const waitForImages=()=>{
+   const imgs=[...root.querySelectorAll('img')];
+   return Promise.all(imgs.map(img=>{
+     if(img.complete && img.naturalWidth>0) return Promise.resolve();
+     return new Promise(resolve=>{
+       let done=false;
+       const finish=()=>{ if(!done){ done=true; resolve(); } };
+       img.addEventListener('load',finish,{once:true});
+       img.addEventListener('error',finish,{once:true});
+       setTimeout(finish,4000);
+     });
+   }));
+ };
+
+ try{
+   if(document.fonts?.ready) await document.fonts.ready;
+ }catch(e){}
+ await waitForImages();
+ await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
+
+ // 화면 미리보기의 transform 값을 그대로 복사하면 A4의 실제 칸 크기와 달라
+ // 프린트에서 문제가 잘릴 수 있다. 출력용 숨은 A4 레이아웃의 실제 크기를 기준으로
+ // 배율/위치를 다시 계산하여 미리보기와 같은 구도를 유지한다.
+ applyProblemViewsForPrintRoot(root,sheet);
+ await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
+
+ const oldTitle=document.title;
+ document.title='원픽학원 오답 TEST';
+ document.body.classList.add('onepick-printing');
+
+ let cleaned=false;
+ const cleanup=()=>{
+   if(cleaned) return;
+   cleaned=true;
+   document.body.classList.remove('onepick-printing');
+   document.title=oldTitle;
+   const r=document.getElementById('onepickPrintRoot');
+   if(r) r.remove();
+   window.removeEventListener('afterprint',cleanup);
+ };
+
+ try{
+   window.addEventListener('afterprint',cleanup,{once:true});
+   window.focus();
+   window.print();
+   setTimeout(cleanup,60000);
+ }catch(err){
+   console.error(err);
+   cleanup();
+   alert('인쇄 중 오류가 발생했습니다.\n'+(err.message||err));
+ }
+};
+
+(function setupCloudUi(){
+ const cfg=loadCloudConfig();
+ if($('cloudSupabaseUrl'))$('cloudSupabaseUrl').value=cfg.url||'';
+ if($('cloudSupabaseAnon'))$('cloudSupabaseAnon').value=cfg.anon||'';
+ refreshPublishBookSelect();
+ if($('saveCloudConfig'))$('saveCloudConfig').onclick=()=>{
+   saveCloudConfigValue($('cloudSupabaseUrl').value,$('cloudSupabaseAnon').value);
+   cloudStatus('<b>✓ 클라우드 설정 저장</b><br>이 주소와 키는 이 컴퓨터에만 저장됩니다.');
+ };
+ if($('syncSharedLibrary'))$('syncSharedLibrary').onclick=async()=>{
+   try{await syncSharedLibraryFromCloud()}catch(err){console.error(err);cloudStatus('<b>동기화 실패</b><br>'+esc(err.message||err))}
+ };
+ if($('publishSharedBook'))$('publishSharedBook').onclick=async()=>{
+   const btn=$('publishSharedBook');btn.disabled=true;
+   try{await publishBookToCloud($('publishBookSelect').value,$('cloudAdminEmail').value.trim(),$('cloudAdminPassword').value)}
+   catch(err){console.error(err);cloudStatus('<b>공용 교재 업로드 실패</b><br>'+esc(err.message||err))}
+   finally{btn.disabled=false;$('cloudAdminPassword').value=''}
+ };
+})();
+
+$('exportZipBtn').onclick=async()=>{
+ if(!window.JSZip)return alert('ZIP 모듈을 불러오지 못했습니다. 인터넷 연결을 확인하세요.');
+ if(!state.books.length && !state.students.length && !state.errors.length)return toast('내보낼 데이터가 없습니다.');
+
+ const btn=$('exportZipBtn');
+ const box=$('transferStatus');
+ btn.disabled=true;
+ box.classList.remove('hidden');
+ box.innerHTML='<b>ZIP 준비 중...</b><br><span class="muted">교재 PDF와 관리 데이터를 모으고 있습니다.</span>';
+
+ try{
+   const zip=new JSZip();
+
+   // Management data / already analyzed problem bank.
+   const manifest={
+     format:'onepick-pinset-transfer-v1',
+     createdAt:new Date().toISOString(),
+     appName:'ONEPICK 핀셋관리',
+     state:state,
+     pdfBooks:[]
+   };
+
+   let included=0,missing=0;
+   for(let i=0;i<state.books.length;i++){
+     const b=state.books[i];
+     box.innerHTML=`<b>ZIP 준비 중...</b><br>교재 ${i+1}/${state.books.length}: ${esc(b.name)}`;
+     await new Promise(r=>setTimeout(r,0));
+
+     const bytes=await getPdfBytes(b.id);
+     if(bytes){
+       const safeName=(b.fileName||b.name||b.id+'.pdf').replace(/[\\/:*?"<>|]/g,'_');
+       const zipPath=`pdfs/${b.id}__${safeName}`;
+       // PDFs are already compressed; STORE is faster and lighter on low-spec PCs.
+       zip.file(zipPath,bytes,{binary:true,compression:'STORE'});
+       manifest.pdfBooks.push({bookId:b.id,path:zipPath,fileName:b.fileName||safeName});
+       included++;
+     }else{
+       manifest.pdfBooks.push({bookId:b.id,path:null,fileName:b.fileName||'',missing:true});
+       missing++;
+     }
+   }
+
+   zip.file('onepick_pinset_data.json',JSON.stringify(manifest,null,2),{compression:'DEFLATE'});
+
+   box.innerHTML=`<b>ZIP 생성 중...</b><br>교재 ${included}권 + 학생/오답 데이터를 하나로 묶는 중입니다.`;
+   const blob=await zip.generateAsync(
+     {type:'blob',compression:'STORE',streamFiles:true},
+     meta=>{
+       box.innerHTML=`<b>ZIP 생성 중... ${Math.round(meta.percent)}%</b><br><span class="muted">${esc(meta.currentFile||'데이터')}</span>`;
+     }
+   );
+
+   const a=document.createElement('a');
+   const url=URL.createObjectURL(blob);
+   a.href=url;
+   a.download=`ONEPICK_핀셋관리_노트북용_${todayISO()}.zip`;
+   document.body.appendChild(a);
+   a.click();
+   a.remove();
+   setTimeout(()=>URL.revokeObjectURL(url),2000);
+
+   box.innerHTML=`<b>✓ 데이터 내보내기 완료</b><br>
+     교재 PDF ${included}권 · 학생 ${state.students.length}명 · 오답 ${state.errors.length}개를 ZIP 하나에 담았습니다.
+     ${missing?`<br><b>주의:</b> 원본 PDF를 찾지 못한 교재 ${missing}권은 관리 데이터만 포함됐습니다.`:''}`;
+   toast('노트북용 ZIP 파일을 만들었습니다.');
+ }catch(err){
+   console.error(err);
+   box.innerHTML='<b>내보내기 실패</b><br>'+esc(err.message||err);
+   alert('데이터 내보내기 중 오류가 발생했습니다.\n'+(err.message||err));
+ }finally{
+   btn.disabled=false;
+ }
+};
+
+$('importZipFile').onchange=async e=>{
+ const f=e.target.files[0];
+ e.target.value='';
+ if(!f)return;
+ if(!window.JSZip)return alert('ZIP 모듈을 불러오지 못했습니다. 인터넷 연결을 확인하세요.');
+
+ if(!confirm('안전 병합으로 가져올까요?\n\n• 이 컴퓨터의 기존 학생·오답 기록은 그대로 보존\n• 기존 교재도 삭제하지 않음\n• 같은 교재는 문제은행/PDF를 연결해서 갱신\n• ZIP에 저장된 문제별 배율·위치 조정값은 같은 문제에 덮어써서 반영\n\n계속할까요?'))return;
+
+ const box=$('transferStatus');
+ box.classList.remove('hidden');
+ box.innerHTML='<b>안전 병합 준비 중...</b><br><span class="muted">기존 학생·오답은 그대로 두고 교재와 문제 조정값을 합칩니다.</span>';
+
+ try{
+   const zip=await JSZip.loadAsync(f);
+   const metaFile=zip.file('onepick_pinset_data.json');
+   if(!metaFile)throw new Error('ONEPICK 핀셋관리 데이터 파일이 없는 ZIP입니다.');
+
+   const manifest=JSON.parse(await metaFile.async('string'));
+   if(manifest.format!=='onepick-pinset-transfer-v1' || !manifest.state)throw new Error('지원하지 않는 데이터 ZIP 형식입니다.');
+
+   const incoming=manifest.state;
+   if(!incoming.students||!incoming.books||!incoming.questions||!incoming.errors)throw new Error('관리 데이터가 손상되었습니다.');
+
+   // IMPORTANT: local students/errors are intentionally preserved.
+   if(!state.viewAdjustments || typeof state.viewAdjustments!=='object') state.viewAdjustments={};
+   const incomingAdjustments=(incoming.viewAdjustments && typeof incoming.viewAdjustments==='object') ? incoming.viewAdjustments : {};
+
+   const norm=s=>String(s||'').toLowerCase().replace(/\s+/g,'').replace(/[()\[\]{}._\-]/g,'');
+   const bookSig=b=>`${norm(b?.name)}|${norm(b?.fileName)}`;
+   const bookNameSig=b=>norm(b?.name);
+   const qIdentity=q=>`${Number(q?.page)||0}|${String(q?.id||'')}|${q?.bundle?'B':'S'}`;
+
+   // incoming book id -> target local book id
+   const bookIdMap=new Map();
+   // incoming question key -> target local question key
+   const qKeyMap=new Map();
+   let matchedBooks=0,addedBooks=0,updatedQuestions=0,addedQuestions=0,adjustmentsMerged=0,pdfsRestored=0,pdfsMissing=0;
+
+   for(const ib of incoming.books){
+     let localBook=(state.books||[]).find(lb=>bookSig(lb)===bookSig(ib));
+     if(!localBook){
+       const sameName=(state.books||[]).filter(lb=>bookNameSig(lb) && bookNameSig(lb)===bookNameSig(ib));
+       if(sameName.length===1) localBook=sameName[0];
+     }
+
+     if(localBook){
+       matchedBooks++;
+       bookIdMap.set(ib.id,localBook.id);
+       // Keep local id but refresh harmless book metadata from incoming.
+       Object.assign(localBook,{...ib,id:localBook.id});
+     }else{
+       let newId=ib.id;
+       if((state.books||[]).some(b=>b.id===newId)) newId='B'+Date.now()+Math.random().toString(36).slice(2,7);
+       localBook={...ib,id:newId};
+       state.books.push(localBook);
+       bookIdMap.set(ib.id,newId);
+       addedBooks++;
+     }
+   }
+
+   // Merge/refresh questions while preserving local keys used by husband's existing errors.
+   for(const iq of incoming.questions){
+     const targetBookId=bookIdMap.get(iq.bookId);
+     if(!targetBookId) continue;
+
+     const localQs=(state.questions||[]).filter(q=>q.bookId===targetBookId);
+     let tq=localQs.find(q=>qIdentity(q)===qIdentity(iq));
+
+     if(tq){
+       const keepKey=tq.key;
+       Object.assign(tq,{...iq,bookId:targetBookId,key:keepKey});
+       qKeyMap.set(iq.key,keepKey);
+       updatedQuestions++;
+     }else{
+       let newKey=String(iq.key||'');
+       if(iq.bookId!==targetBookId && newKey){
+         if(newKey.startsWith(iq.bookId)) newKey=targetBookId+newKey.slice(String(iq.bookId).length);
+         else newKey=`${targetBookId}:import:${newKey}`;
+       }
+       if(!newKey || (state.questions||[]).some(q=>q.key===newKey)){
+         newKey=`${targetBookId}:import:${Date.now()}:${Math.random().toString(36).slice(2,8)}`;
+       }
+       const nq={...iq,bookId:targetBookId,key:newKey};
+       state.questions.push(nq);
+       qKeyMap.set(iq.key,newKey);
+       addedQuestions++;
+     }
+   }
+
+   // Merge the incoming problem zoom/x/y adjustments onto the corresponding local question.
+   // Existing local-only adjustments remain untouched; incoming values win for matched problems.
+   for(const [adjKey,adjValue] of Object.entries(incomingAdjustments)){
+     const sep=adjKey.indexOf('::');
+     if(sep<0) continue;
+     const incomingBookId=adjKey.slice(0,sep);
+     const incomingQKey=adjKey.slice(sep+2);
+     const targetBookId=bookIdMap.get(incomingBookId);
+     const targetQKey=qKeyMap.get(incomingQKey);
+     if(!targetBookId || !targetQKey) continue;
+     state.viewAdjustments[`${targetBookId}::${targetQKey}`]={...adjValue};
+     adjustmentsMerged++;
+   }
+
+   // Restore/replace only PDFs that exist in the incoming ZIP. Never clear local PDFs.
+   pdfDocCache.clear();
+   imageCache.clear(); problemFitMetaCache.clear();
+   const pdfBooks=manifest.pdfBooks||[];
+   for(let i=0;i<pdfBooks.length;i++){
+     const info=pdfBooks[i];
+     const targetBookId=bookIdMap.get(info.bookId);
+     if(!targetBookId) continue;
+     if(!info.path){ pdfsMissing++; continue; }
+     const zf=zip.file(info.path);
+     if(!zf){ pdfsMissing++; continue; }
+
+     box.innerHTML=`<b>안전 병합 중...</b><br>교재 PDF ${i+1}/${pdfBooks.length} 연결 중...`;
+     await new Promise(r=>setTimeout(r,0));
+     const arr=await zf.async('arraybuffer');
+     await putPdf(targetBookId,arr);
+     pdfsRestored++;
+   }
+
+   // Do NOT replace state.students or state.errors.
+   localStorage.setItem(LS_KEY,JSON.stringify(state));
+   renderAll();
+
+   box.innerHTML=`<b>✓ 안전 병합 완료</b><br>
+     기존 학생 ${state.students.length}명 · 기존 오답 ${state.errors.length}개는 보존했습니다.<br>
+     같은 교재 연결 ${matchedBooks}권 · 새 교재 추가 ${addedBooks}권 · 문제 갱신 ${updatedQuestions}개 · 문제 추가 ${addedQuestions}개<br>
+     <b>문제 배율/위치 조정값 ${adjustmentsMerged}개를 병합했습니다.</b><br>
+     교재 PDF ${pdfsRestored}권을 연결했습니다.
+     ${pdfsMissing?`<br><b>주의:</b> ZIP에서 PDF를 찾지 못한 교재 ${pdfsMissing}권이 있습니다.`:''}`;
+   toast('기존 학생·오답을 보존한 채 문제 조정값을 병합했습니다.');
+ }catch(err){
+   console.error(err);
+   box.innerHTML='<b>병합 가져오기 실패</b><br>'+esc(err.message||err);
+   alert('안전 병합 중 오류가 발생했습니다.\n'+(err.message||err));
+ }
+};
+
+$('exportBtn').onclick=()=>{
+ const blob=new Blob([JSON.stringify(state,null,2)],{type:'application/json'});
+ const a=document.createElement('a');
+ a.href=URL.createObjectURL(blob);
+ a.download='ONEPICK_핀셋관리_JSON백업_'+todayISO()+'.json';
+ a.click();
+ URL.revokeObjectURL(a.href);
+};
+
+$('importFile').onchange=async e=>{
+ const f=e.target.files[0];
+ if(!f)return;
+ try{
+   const x=JSON.parse(await f.text());
+   if(!x.students||!x.books||!x.questions||!x.errors)throw Error();
+   state=x;
+   saveState();
+   toast('JSON 백업을 불러왔습니다. PDF 원본은 포함되지 않습니다.');
+ }catch(err){
+   alert('올바른 JSON 백업 파일이 아닙니다.');
+ }
+};
+
+$('resetBtn').onclick=async()=>{
+ if(!confirm('학생·교재·오답 데이터를 모두 초기화할까요?'))return;
+ await clearAllPdfs();
+ state={students:[],books:[],questions:[],errors:[]};
+ pdfDocCache.clear();
+ imageCache.clear(); problemFitMetaCache.clear();
+ saveState();
+};
+
+const HUSBAND_MIGRATION_FLAG='onepick_husband_backup_migrated_2026_09_21';
+
+function isCurrentStateEmpty(){
+ return (!state.students?.length && !state.errors?.length && !state.books?.length && !state.questions?.length);
+}
+
+async function importBundledHusbandBackupIfNeeded(){
+ if(localStorage.getItem(HUSBAND_MIGRATION_FLAG)==='1') return;
+ if(!isCurrentStateEmpty()) return;
+
+ try{
+   const res=await fetch('./initial_data/onepick_pinset_data.json',{cache:'no-store'});
+   if(!res.ok) return;
+   const manifest=await res.json();
+   if(manifest.format!=='onepick-pinset-transfer-v1' || !manifest.state) return;
+
+   const incoming=manifest.state;
+   if(!incoming.students||!incoming.books||!incoming.questions||!incoming.errors) return;
+
+   const statusBox=$('transferStatus');
+   if(statusBox){
+     statusBox.classList.remove('hidden');
+     statusBox.innerHTML='<b>남편 기존 데이터 최초 복원 중...</b><br><span class="muted">학생·오답·교재·문제 배율/위치와 PDF를 새 웹주소 저장공간으로 옮기고 있습니다.</span>';
+   }
+
+   // Restore state first. This is used only on a brand-new web origin with no local data.
+   state=incoming;
+   if(!state.viewAdjustments || typeof state.viewAdjustments!=='object') state.viewAdjustments={};
+
+   let restored=0,missing=0;
+   for(const info of (manifest.pdfBooks||[])){
+     if(!info.path){missing++;continue;}
+     const url='./initial_data/'+info.path.split('/').map(encodeURIComponent).join('/');
+     try{
+       const r=await fetch(url,{cache:'no-store'});
+       if(!r.ok){missing++;continue;}
+       const arr=await r.arrayBuffer();
+       await putPdf(info.bookId,arr);
+       restored++;
+     }catch(e){missing++;}
+   }
+
+   localStorage.setItem(LS_KEY,JSON.stringify(state));
+   localStorage.setItem(HUSBAND_MIGRATION_FLAG,'1');
+   pdfDocCache.clear(); imageCache.clear(); problemFitMetaCache.clear();
+   renderAll();
+   refreshPublishBookSelect();
+
+   if(statusBox){
+     statusBox.innerHTML=`<b>✓ 남편 기존 데이터 최초 복원 완료</b><br>
+       학생 ${state.students.length}명 · 오답 ${state.errors.length}개 · 교재 ${state.books.length}권 · 문제 ${state.questions.length}개를 복원했습니다.<br>
+       문제 배율/위치 ${Object.keys(state.viewAdjustments||{}).length}개 · PDF ${restored}권 복원
+       ${missing?`<br><b>주의:</b> PDF ${missing}권은 복원하지 못했습니다.`:''}`;
+   }
+   toast('기존 학생·오답 데이터가 새 웹주소로 복원되었습니다.');
+ }catch(err){
+   console.error('최초 데이터 복원 실패',err);
+ }
+}
+
+normalizeRpmCalculusBundles();
+renderAll();
+setTimeout(importBundledHusbandBackupIfNeeded,400);
+refreshPublishBookSelect();
+setTimeout(autoCloudSync,1200);
+</script>
+</body>
+</html>
