@@ -1,0 +1,31 @@
+ONEPICK 자동업데이트 + 공용 교재 동기화 버전
+
+구조
+1. 프로그램(index.html): Vercel 같은 고정 웹주소에 배포
+   - 이후 index.html을 새 버전으로 교체하면 남편은 같은 주소에서 새로고침만 하면 최신 버전 사용
+   - vercel.json이 캐시를 막아 최신 버전을 바로 받도록 설정
+
+2. 학생/오답/문제별 로컬 데이터
+   - 기존 onepick_want_pdf_v1 키 그대로 사용
+   - 프로그램 업데이트로 초기화하지 않음
+   - 남편 컴퓨터의 학생/오답은 공용 교재 동기화 때도 절대 삭제하지 않음
+
+3. 공용 교재
+   - Supabase의 onepick_shared_books 테이블 + onepick-pdfs Storage 사용
+   - 관리자가 '선택 교재 공용으로 올리기/갱신' 실행
+   - 남편은 같은 웹주소를 열거나 새로고침하면 약 1.2초 뒤 자동 동기화
+   - 새 교재, PDF, 문제은행, 저장한 문제 배율/위치값이 남편 컴퓨터에 들어옴
+
+최초 1회 설정
+A. Supabase 프로젝트 생성
+B. SQL Editor에서 SUPABASE_SETUP.sql 전체 실행
+C. Authentication > Users에서 관리자 계정(이메일/비밀번호) 1개 생성
+D. Project Settings > API에서 Project URL과 anon public key 확인
+E. 프로그램의 '백업 / 복원' > '공용 교재 클라우드 동기화'에 URL/anon key 입력 후 저장
+F. 남편 노트북에도 같은 URL/anon key만 입력. 관리자 비밀번호는 입력할 필요 없음
+G. Vercel에 이 폴더를 배포하여 고정 주소 사용
+
+중요
+- 관리자 이메일/비밀번호는 교재 업로드할 때만 입력하며 프로그램에 저장하지 않음
+- Supabase anon key는 공개용 키이므로 웹앱에 사용 가능
+- JSON 백업 불러오기는 기존처럼 전체 교체 기능이므로, 남편 데이터 보존 목적에는 사용하지 않는 것이 안전함
