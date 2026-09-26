@@ -9,7 +9,7 @@
 *{box-sizing:border-box} body{margin:0;font-family:Pretendard,"Noto Sans KR",Arial,sans-serif;color:var(--ink);background:var(--bg)}
 .app{display:grid;grid-template-columns:240px 1fr;min-height:100vh}
 aside{background:#fff;border-right:1px solid var(--line);padding:22px 16px;position:sticky;top:0;height:100vh}
-.logo{font-size:24px;font-weight:900;color:var(--mint2);margin:2px 8px 24px}.logo small{display:block;font-size:11px;color:var(--muted);letter-spacing:1.2px;margin-top:3px}
+.logo{font-size:22px;font-weight:900;color:var(--mint2);margin:2px 6px 24px;white-space:nowrap;line-height:1.15}.logo small{display:block;font-size:11px;color:var(--muted);letter-spacing:1.1px;margin-top:4px;white-space:normal}
 nav button{width:100%;border:0;background:transparent;text-align:left;padding:12px 13px;border-radius:11px;font-weight:700;color:#41505d;cursor:pointer;margin:2px 0}
 nav button.active,nav button:hover{background:var(--pale);color:var(--mint2)}
 main{padding:28px 30px 60px;min-width:0}.top{display:flex;justify-content:space-between;gap:16px;align-items:center;margin-bottom:20px}
@@ -404,7 +404,7 @@ table{width:100%;border-collapse:separate;border-spacing:0;font-size:13px}th{bac
   </nav>
 </aside>
 <main>
-<div class="top"><div><h1 id="pageTitle">대시보드</h1><div class="sub">원본 PDF를 먼저 핀셋관리용으로 정리한 뒤, 정리된 PDF만 문제은행에 업로드하는 2단계 방식입니다.</div></div><span class="badge bundle">PDF 업로드형 · 자동업데이트 · 공용교재 · 남편데이터최초복원</span></div>
+<div class="top"><div><h1 id="pageTitle">대시보드</h1><div class="sub">원본 PDF를 먼저 핀셋관리용으로 정리한 뒤, 정리된 PDF만 문제은행에 업로드하는 2단계 방식입니다.</div></div><span class="badge bundle">PDF 업로드형 · 자동업데이트 · 공용교재 · 대수C1 · 시험지페이지순</span></div>
 
 <section id="dashboard" class="section active">
  <div class="grid4">
@@ -881,7 +881,7 @@ async function analyzeUploadedPdf(file,name){
  const doc=await pdfjsLib.getDocument({data:bytes.slice(0)}).promise;
  pdfDocCache.set(bookId,doc);
 
- const c1StrictMode=/미적분\s*1?\s*C1|C1/i.test((name||'')+' '+file.name);
+ const c1StrictMode=/미적분\s*1?\s*C1/i.test((name||'')+' '+file.name);
  const C1_AUDITED_MANIFEST={"1":[1,2,3,4,5],"2":[6,7,8,9],"3":[10,11,12,13],"4":[14,15,16,17],"5":[18,19,20,21],"6":[22,23,24,25],"7":[26,27,28,29],"8":[30,31,32,33,34,35],"9":[36,37,38,39,40],"10":[41,42,43,44],"11":[45,46,47,48,49],"12":[50,51,52,53,54,55],"13":[56,57,58,59,60],"14":[61,62,63,64],"15":[65,66,67,68],"16":[1,2,3,4,5],"17":[6,7,8,9],"18":[10,11,12,13,14],"19":[15,16,17,18],"20":[19,20,21,22],"21":[23,24,25,26],"22":[27,28,29,30],"23":[31,32,33,34],"24":[35,36,37],"25":[38,39,40,41],"26":[42,43,44],"27":[45,46,47,48],"28":[49,50,51,52],"29":[53,54],"30":[1,2,3],"31":[4,5,6],"32":[7,8,9,10],"33":[11,12,13,14],"34":[15,16,17,18],"35":[19,20,21,22],"36":[23,24,25,26],"37":[27,28,29],"38":[30,31,32,33],"39":[34,35,36,37],"40":[38,39,40,41],"41":[42,43,44,45],"42":[46,47,48,49],"43":[1,2,3,4],"44":[5,6,7,8],"45":[9,10,11,12],"46":[13,14,15,16],"47":[17,18,19,20],"48":[21,22,23,24],"49":[25,26,27,28],"50":[29,30,31,32],"51":[33,34,35,36,37,38],"52":[1,2,3,4,5],"53":[6,7,8,9],"54":[10,11,12,13,14],"55":[15,16,17,18],"56":[19,20,21,22],"57":[23,24,25,26],"58":[27,28],"59":[29,30,31,32],"60":[33,34,35,36],"61":[37,38,39],"62":[40,41,42],"63":[43,44,45,46],"64":[47,48,49,50],"65":[51,52,53,54],"66":[55,56,57,58],"67":[59,60,61,62],"68":[1,2,3,4],"69":[5,6,7,8],"70":[9,10,11,12],"71":[13,14,15,16],"72":[17,18,19,20],"73":[21,22,23,24],"74":[25,26,27,28],"75":[29,30,31,32],"76":[33,34,35,36],"77":[37,38,39,40],"78":[1,2,3,4],"79":[5,6,7,8],"80":[9,10,11,12],"81":[13,14,15,16],"82":[17,18,19,20],"83":[21,22],"84":[1,2,3,4],"85":[5,6,7,8],"86":[9,10,11,12],"87":[13,14,15,16],"88":[17,18,19,20],"89":[21,22,23,24],"90":[25,26,27,28],"91":[29,30,31,32],"92":[33,34,35,36],"93":[37,38,39,40],"94":[41,42,43,44],"95":[1,2,3,4],"96":[5,6,7,8],"97":[9,10,11,12],"98":[13,14,15,16],"99":[17,18,19,20],"100":[21,22,23,24],"101":[25,26,27,28],"102":[29,30,31,32],"103":[33,34,35,36],"104":[1,2,3,4],"105":[5,6,7,8],"106":[9,10,11,12],"107":[13,14,15],"108":[16,17]};
  const pages=[];
  const bundleDefs=[];
@@ -1734,7 +1734,48 @@ function errorCard(e,actions=false){
 function renderRecent(){$('recentErrors').innerHTML=state.errors.slice().sort((a,b)=>b.createdAt.localeCompare(a.createdAt)).slice(0,6).map(e=>errorCard(e)).join('')||'<div class="muted">등록된 오답이 없습니다.</div>'}
 function renderHistory(){let es=state.errors.slice().sort((a,b)=>b.firstDate.localeCompare(a.firstDate));if($('hStudent').value)es=es.filter(e=>e.studentId===$('hStudent').value);$('historyList').innerHTML=es.map(e=>errorCard(e,true)).join('')||'<div class="card muted">오답 이력이 없습니다.</div>'}
 function renderToday(){const es=state.errors.filter(e=>['TODAY','OVERDUE'].includes(status(e)));$('todayList').innerHTML=es.map(e=>errorCard(e,true)).join('')||'<div class="card muted">오늘 재시험 대상이 없습니다.</div>'}
-function renderGenerator(){const sid=$('gStudent').value;const es=state.errors.filter(e=>!sid||e.studentId===sid).sort((a,b)=>b.firstDate.localeCompare(a.firstDate));$('selectProblems').innerHTML=es.map(e=>{const q=state.questions.find(q=>q.key===e.questionKey);return `<label class="checkrow"><input class="gcheck" type="checkbox" value="${e.id}"><div><b class="mono">${esc(q?.id||'')}</b> ${q?.bundle?'<span class="badge bundle">묶음</span>':''}<span class="muted small"> · ${esc(bookName(e.bookId))} · ${e.firstDate}</span></div></label>`}).join('')||'<div class="muted">선택할 오답이 없습니다.</div>'}
+function firstProblemNumber(id){
+ const m=String(id||'').match(/\d+/);
+ return m?parseInt(m[0],10):Number.MAX_SAFE_INTEGER;
+}
+function compareErrorsByBookPageProblem(a,b){
+ const qa=state.questions.find(q=>q.key===a.questionKey);
+ const qb=state.questions.find(q=>q.key===b.questionKey);
+
+ // 교재가 여러 권 섞여 있으면 현재 교재 목록 순서를 먼저 유지
+ const ai=Math.max(0,state.books.findIndex(x=>x.id===a.bookId));
+ const bi=Math.max(0,state.books.findIndex(x=>x.id===b.bookId));
+ if(ai!==bi) return ai-bi;
+
+ // 같은 교재 안에서는 PDF 페이지 순서
+ const ap=Number(qa?.page)||Number.MAX_SAFE_INTEGER;
+ const bp=Number(qb?.page)||Number.MAX_SAFE_INTEGER;
+ if(ap!==bp) return ap-bp;
+
+ // 같은 페이지에서는 문제번호 순서
+ const an=firstProblemNumber(qa?.id||a.problemId);
+ const bn=firstProblemNumber(qb?.id||b.problemId);
+ if(an!==bn) return an-bn;
+
+ // 같은 번호가 있으면 실제 페이지 내 위치 순서
+ const ay=Number(qa?.crop?.y0)||0, by=Number(qb?.crop?.y0)||0;
+ if(ay!==by) return ay-by;
+ const ax=Number(qa?.crop?.x0)||0, bx=Number(qb?.crop?.x0)||0;
+ if(ax!==bx) return ax-bx;
+
+ return String(a.id||'').localeCompare(String(b.id||''));
+}
+function renderGenerator(){
+ const sid=$('gStudent').value;
+ const es=state.errors
+   .filter(e=>!sid||e.studentId===sid)
+   .sort(compareErrorsByBookPageProblem);
+
+ $('selectProblems').innerHTML=es.map(e=>{
+   const q=state.questions.find(q=>q.key===e.questionKey);
+   return `<label class="checkrow"><input class="gcheck" type="checkbox" value="${e.id}"><div><b class="mono">${esc(q?.id||'')}</b> ${q?.bundle?'<span class="badge bundle">묶음</span>':''}<span class="muted small"> · ${esc(bookName(e.bookId))} · p.${q?.page??'-'} · ${e.firstDate}</span></div></label>`;
+ }).join('')||'<div class="muted">선택할 오답이 없습니다.</div>';
+}
 
 async function renderQuestionBank(){
  const box=$('questionGrid');
@@ -2114,7 +2155,10 @@ window.addEventListener('resize',()=>{
 $('makeTest').onclick=async()=>{
  const ids=[...document.querySelectorAll('.gcheck:checked')].map(x=>x.value);
  if(!ids.length)return toast('시험지에 넣을 문제를 선택하세요.');
- const es=ids.map(id=>state.errors.find(e=>e.id===id)).filter(Boolean);
+ const es=ids
+   .map(id=>state.errors.find(e=>e.id===id))
+   .filter(Boolean)
+   .sort(compareErrorsByBookPageProblem);
  const sid=$('gStudent').value;
  const studentText=sid?esc(studentName(sid)):'';
  const today=todayISO();
@@ -2841,8 +2885,44 @@ async function importBundledHusbandBackupIfNeeded(){
  }
 }
 
+
+const ALGEBRA_C1_BUNDLED_FLAG='onepick_bundled_algebra_c1_20260926';
+async function installBundledAlgebraC1(){
+ try{
+   const already=(state.books||[]).find(b=>
+     b.id==='B_ALGEBRA_C1_20260926' ||
+     String(b.name||'').replace(/\s+/g,'').includes('대수C1') ||
+     String(b.fileName||'').replace(/\s+/g,'').includes('대수(C1)')
+   );
+   if(already){localStorage.setItem(ALGEBRA_C1_BUNDLED_FLAG,'1');return;}
+
+   const r=await fetch('./shared_books/algebra_c1/book.json',{cache:'no-store'});
+   if(!r.ok)return;
+   const pkg=await r.json();
+   if(pkg.format!=='onepick-bundled-shared-book-v1'||!pkg.book||!Array.isArray(pkg.questions))return;
+
+   const book={...pkg.book};
+   state.books.push(book);
+   state.questions.push(...pkg.questions.map(q=>({...q})));
+   if(!state.viewAdjustments||typeof state.viewAdjustments!=='object')state.viewAdjustments={};
+
+   const pr=await fetch('./shared_books/algebra_c1/'+encodeURIComponent(pkg.pdf),{cache:'no-store'});
+   if(pr.ok){
+     const arr=await pr.arrayBuffer();
+     await putPdf(book.id,arr);
+   }
+
+   localStorage.setItem(LS_KEY,JSON.stringify(state));
+   localStorage.setItem(ALGEBRA_C1_BUNDLED_FLAG,'1');
+   pdfDocCache.clear();imageCache.clear();problemFitMetaCache.clear();
+   renderAll();refreshPublishBookSelect();
+   toast(`대수 C1 ${pkg.questions.length}문제를 추가했습니다.`);
+ }catch(err){console.error('대수 C1 자동 추가 실패',err)}
+}
+
 normalizeRpmCalculusBundles();
 renderAll();
+setTimeout(installBundledAlgebraC1,900);
 setTimeout(importBundledHusbandBackupIfNeeded,400);
 refreshPublishBookSelect();
 setTimeout(autoCloudSync,1200);
