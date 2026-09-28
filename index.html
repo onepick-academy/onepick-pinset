@@ -404,7 +404,7 @@ table{width:100%;border-collapse:separate;border-spacing:0;font-size:13px}th{bac
   </nav>
 </aside>
 <main>
-<div class="top"><div><h1 id="pageTitle">대시보드</h1><div class="sub">원본 PDF를 먼저 핀셋관리용으로 정리한 뒤, 정리된 PDF만 문제은행에 업로드하는 2단계 방식입니다.</div></div><span class="badge bundle">PDF 업로드형 · 자동업데이트 · 공용교재 · 대수C1 · 시험지페이지순</span></div>
+<div class="top"><div><h1 id="pageTitle">대시보드</h1><div class="sub">원본 PDF를 먼저 핀셋관리용으로 정리한 뒤, 정리된 PDF만 문제은행에 업로드하는 2단계 방식입니다.</div></div><span class="badge bundle">PDF 업로드형 · 자동업데이트 · 공용교재 · 시험지페이지순</span></div>
 
 <section id="dashboard" class="section active">
  <div class="grid4">
@@ -2886,6 +2886,40 @@ async function importBundledHusbandBackupIfNeeded(){
 }
 
 
+
+async function installBundledSharedBook({flag,id,nameHints,manifestUrl,folderUrl}){
+ try{
+   if(localStorage.getItem(flag)==='1') return;
+   const norm=s=>String(s||'').toLowerCase().replace(/\s+/g,'');
+   const already=(state.books||[]).find(b=>
+     b.id===id ||
+     (nameHints||[]).some(h=>norm(b.name).includes(norm(h)) || norm(b.fileName).includes(norm(h)))
+   );
+   if(already){localStorage.setItem(flag,'1');return;}
+
+   const r=await fetch(manifestUrl,{cache:'no-store'});
+   if(!r.ok)return;
+   const pkg=await r.json();
+   if(pkg.format!=='onepick-bundled-shared-book-v1'||!pkg.book||!Array.isArray(pkg.questions))return;
+
+   const book={...pkg.book};
+   state.books.push(book);
+   state.questions.push(...pkg.questions.map(q=>({...q})));
+   if(!state.viewAdjustments||typeof state.viewAdjustments!=='object')state.viewAdjustments={};
+
+   const pr=await fetch(folderUrl+'/'+encodeURIComponent(pkg.pdf),{cache:'no-store'});
+   if(pr.ok){
+     const arr=await pr.arrayBuffer();
+     await putPdf(book.id,arr);
+   }
+
+   localStorage.setItem(LS_KEY,JSON.stringify(state));
+   localStorage.setItem(flag,'1');
+   pdfDocCache.clear();imageCache.clear();problemFitMetaCache.clear();
+   renderAll();refreshPublishBookSelect();
+   toast(`${book.name} ${pkg.questions.length}문제를 추가했습니다.`);
+ }catch(err){console.error('번들 교재 자동 추가 실패',err)}
+}
 const ALGEBRA_C1_BUNDLED_FLAG='onepick_bundled_algebra_c1_20260926';
 async function installBundledAlgebraC1(){
  try{
@@ -2923,6 +2957,20 @@ async function installBundledAlgebraC1(){
 normalizeRpmCalculusBundles();
 renderAll();
 setTimeout(installBundledAlgebraC1,900);
+setTimeout(()=>installBundledSharedBook({
+ flag:'onepick_bundled_common_math1_c1_20260928',
+ id:'B_COMMON_MATH1_C1_20260928',
+ nameHints:['공통수학1 C1','C1(공통수학1)'],
+ manifestUrl:'./shared_books/common_math1_c1/book.json',
+ folderUrl:'./shared_books/common_math1_c1'
+}),1200);
+setTimeout(()=>installBundledSharedBook({
+ flag:'onepick_bundled_geometry_rpm_20260928',
+ id:'B_GEOMETRY_RPM_20260928',
+ nameHints:['기하 기본교재 RPM','기하기본교재(RPM)'],
+ manifestUrl:'./shared_books/geometry_rpm/book.json',
+ folderUrl:'./shared_books/geometry_rpm'
+}),1500);
 setTimeout(importBundledHusbandBackupIfNeeded,400);
 refreshPublishBookSelect();
 setTimeout(autoCloudSync,1200);
