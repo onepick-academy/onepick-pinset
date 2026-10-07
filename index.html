@@ -2846,10 +2846,13 @@ $('makeTest').onclick=async()=>{
    const wPt=fit.inkWidth/fit.imgScale, hPt=fit.height/fit.imgScale;
    const want=(layoutCfg.fontPt/0.75)/fit.fontPt;            // 목표 글자 크기일 때 CSS px / pt
    const minFont=layoutCfg.fontPt-1.5;
+   // 최소 글자 크기와 0.07pt 이내로 모자란 경우(화면 2px 미만)는 들어가는 것으로 본다.
+   // 예: 대수 C1의 8.15pt 조판 문제는 한 칸에서 7.44~7.48pt → 한 칸 사용.
+   const FIT_TOL=0.07;
    const printed=cell=>fit.fontPt*Math.min(want,(cell.w-10)/wPt,(cell.h-12)/hPt)*0.75;
    const [normal,tall,wide,full]=AUTO_CELLS;
-   if(printed(normal)>=minFont-0.01) return normal;
-   const two=[tall,wide].filter(c=>printed(c)>=minFont-0.01).sort((a,b)=>printed(b)-printed(a))[0];
+   if(printed(normal)>=minFont-FIT_TOL) return normal;
+   const two=[tall,wide].filter(c=>printed(c)>=minFont-FIT_TOL).sort((a,b)=>printed(b)-printed(a))[0];
    return two||full;
  };
 
