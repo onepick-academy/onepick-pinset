@@ -1366,6 +1366,13 @@ function persistLockedCropsSoon(){
 function validCropRect(c){
  return !!c && [c.x0,c.y0,c.x1,c.y1].every(v=>Number.isFinite(Number(v))) && Number(c.x1)>Number(c.x0) && Number(c.y1)>Number(c.y0);
 }
+// 크롭 이미지 캐시와 여백 정보(problemFitMetaCache)가 함께 쓰는 키.
+// 이미지를 만들 때와 시험지 카드(data-view-key)에서 꺼낼 때 반드시 같은 함수를 사용한다.
+function problemViewKey(q,scale){
+ const c=q?.fixedCrop;
+ const sig=validCropRect(c)?[c.x0,c.y0,c.x1,c.y1].join(','):'';
+ return q?.key+'@'+scale+'@'+sig;
+}
 function resolveAndLockQuestionCrop(q,pageW,pageH){
  // 한 번 확정된 fixedCrop은 이후 시험지 생성 횟수, 문제 선택 순서,
  // 다른 문제의 추가/삭제 여부와 상관없이 절대 다시 계산하지 않는다.
@@ -1415,8 +1422,7 @@ async function cropQuestionImage(q,scale=2.4){
  const c=resolveAndLockQuestionCrop(q,pageW,pageH);
 
  // 캐시 키에도 고정 크롭 좌표를 포함한다. 같은 문제는 언제 만들어도 같은 이미지가 된다.
- const cropSig=[c.x0,c.y0,c.x1,c.y1].join(',');
- const ck=q.key+'@'+scale+'@'+cropSig;
+ const ck=problemViewKey(q,scale);
  if(imageCache.has(ck))return imageCache.get(ck);
 
  const canvas=document.createElement('canvas');
@@ -1464,15 +1470,26 @@ async function cropQuestionImage(q,scale=2.4){
  const w=out.width,h=out.height;
  const d=outCtx.getImageData(0,0,w,h).data;
  const rowCounts=new Array(h).fill(0);
+ const colCounts=new Array(w).fill(0);
 
  for(let yy=0;yy<h;yy++){
    for(let xx=0;xx<w;xx++){
      const i=(yy*w+xx)*4;
      const r=d[i],g=d[i+1],b=d[i+2],a=d[i+3];
      const lum=(r+g+b)/3;
-     if(a>8 && lum<247) rowCounts[yy]++;
+     if(a>8 && lum<247){rowCounts[yy]++;colCounts[xx]++;}
    }
  }
+
+ // 가로 방향 실제 내용 범위. 자동맞춤 기준으로는 쓰지 않고,
+ // 확대/이동 시 내용이 카드 밖으로 나가지 않게 막는 경계로만 사용한다.
+ // 점 하나라도 있으면 내용으로 보므로 글자나 그림 끝을 잘라낼 일이 없다.
+ let inkLeft=0,inkRight=w-1;
+ while(inkLeft<w-1 && colCounts[inkLeft]===0)inkLeft++;
+ while(inkRight>inkLeft && colCounts[inkRight]===0)inkRight--;
+ if(inkLeft>=inkRight){inkLeft=0;inkRight=w-1;}
+ inkLeft=Math.max(0,inkLeft-4);
+ inkRight=Math.min(w-1,inkRight+4);
 
  const rowTh=Math.max(1,Math.floor(w*0.0025));
  let top=0,bottom=h-1;
@@ -1492,7 +1509,9 @@ async function cropQuestionImage(q,scale=2.4){
    x:0,
    y:top,
    width:w,
-   height:Math.max(1,bottom-top+1)
+   height:Math.max(1,bottom-top+1),
+   inkX:inkLeft,
+   inkWidth:inkRight-inkLeft+1
  });
 
  const url=out.toDataURL('image/png');
@@ -2079,12 +2098,17 @@ function applyProblemView(card){
  let finalScale=scale*zoom;
  const contentH=(meta && meta.height>0)?meta.height:nh;
  const contentY=(meta && meta.height>0)?meta.y:0;
+ const contentW=(meta && meta.inkWidth>0)?meta.inkWidth:nw;
+ const contentX=(meta && meta.inkWidth>0)?meta.inkX:0;
  const safeMargin=Math.max(5,Math.round(wh*0.015));
+ const safeMarginX=Math.max(5,Math.round(ww*0.015));
 
- // 최종 잘림 방지: 세로 내용이 A4 문제칸보다 클 때만 필요한 만큼 자동 축소.
- // 가로 배율은 사용자가 조정한 값을 유지하여 기존 확대 기능을 막지 않는다.
+ // 최종 잘림 방지: 실제 내용이 A4 문제칸보다 크면 필요한 만큼 자동 축소.
+ // 세로·가로 모두 확인한다. 저장된 배율값(data-zoom)은 바꾸지 않고 화면 표시 배율만 줄인다.
  const maxVerticalScale=Math.max(0.01,(wh-safeMargin*2)/Math.max(1,contentH));
+ const maxHorizontalScale=Math.max(0.01,(ww-safeMarginX*2)/Math.max(1,contentW));
  if(finalScale>maxVerticalScale) finalScale=maxVerticalScale;
+ if(finalScale>maxHorizontalScale) finalScale=maxHorizontalScale;
 
  if(meta && meta.width>0 && meta.height>0){
    autoX=(ww-meta.width*finalScale)/2 - meta.x*finalScale;
@@ -2104,6 +2128,13 @@ function applyProblemView(card){
  contentTop=ty+contentY*finalScale;
  contentBottom=contentTop+contentH*finalScale;
  if(contentBottom>wh-safeMargin) ty-=contentBottom-(wh-safeMargin);
+
+ // 좌/우 이동도 같은 방식으로 실제 내용이 칸 안에 남도록 위치만 보정한다.
+ let contentLeft=tx+contentX*finalScale;
+ if(contentLeft<safeMarginX) tx+=safeMarginX-contentLeft;
+ contentLeft=tx+contentX*finalScale;
+ const contentRight=contentLeft+contentW*finalScale;
+ if(contentRight>ww-safeMarginX) tx-=contentRight-(ww-safeMarginX);
 
  img.style.transform=`translate(${tx}px,${ty}px) scale(${finalScale})`;
  card.dataset.effectiveScale=String(finalScale);
@@ -2328,7 +2359,7 @@ $('makeTest').onclick=async()=>{
       const defaultX=savedAdj?.x ?? 0;
       const defaultY=savedAdj?.y ?? 0;
       const savedFlag=savedAdj?'1':'0';
-      problemsHtml += `<div class="test-problem${cls}" style="${pos}" data-view-key="${esc(q.key+'@3')}" data-question-key="${esc(q.key)}" data-base-zoom="${baseZoom}" data-zoom="${defaultZoom}" data-default-zoom="${defaultZoom}" data-x="${defaultX}" data-y="${defaultY}" data-saved="${savedFlag}">
+      problemsHtml += `<div class="test-problem${cls}" style="${pos}" data-view-key="${esc(problemViewKey(q,3))}" data-question-key="${esc(q.key)}" data-base-zoom="${baseZoom}" data-zoom="${defaultZoom}" data-default-zoom="${defaultZoom}" data-x="${defaultX}" data-y="${defaultY}" data-saved="${savedFlag}">
        <h3>${globalIndex}. <span class="mono">문제번호 ${esc(q.id)}</span> <span class="problem-page">· 교재 p.${q.page}</span></h3>
        <div class="problem-meta">최초 오답일 ${e.firstDate}</div>
        <div class="problem-image-wrap">${url ? `<img class="preview-problem-img" src="${url}" alt="${esc(q.id)}" onload="applyProblemView(this.closest('.test-problem'))" onwheel="nudgeProblemWithWheel(event,this)">` : `<div class="note" style="width:100%">PDF 원본을 다시 업로드해야 합니다.</div>`}</div>
