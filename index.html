@@ -500,6 +500,7 @@ table{width:100%;border-collapse:separate;border-spacing:0;font-size:13px}th{bac
   <div style="margin-top:12px"><label>오답 메모</label><textarea id="rMemo" style="width:100%"></textarea></div>
  </div>
 
+
  <div class="card">
    <div class="row">
      <div style="flex:1;min-width:220px">
@@ -534,6 +535,27 @@ table{width:100%;border-collapse:separate;border-spacing:0;font-size:13px}th{bac
 <section id="today" class="section"><div id="todayList"></div></section>
 
 <section id="generator" class="section">
+ <div class="card no-print" id="sheetSettingsCard">
+  <b>시험지 설정</b>
+  <div class="row" style="margin-top:10px;align-items:flex-end">
+   <div>
+    <label>문제 자르기·배치 방식</label>
+    <div class="row" style="gap:6px;margin:0">
+     <button type="button" class="btn" id="sheetModeV2">새 방식 (자동 맞춤)</button>
+     <button type="button" class="btn secondary" id="sheetModeLegacy">기존 방식</button>
+    </div>
+   </div>
+   <div>
+    <label>글자 크기</label>
+    <select id="sheetFontPt">
+     <option value="8.5">8.5pt (작게)</option>
+     <option value="9">9pt (보통 · 기본값)</option>
+     <option value="9.5">9.5pt (크게)</option>
+    </select>
+   </div>
+  </div>
+  <div class="muted small" id="sheetModeDesc" style="margin-top:8px"></div>
+ </div>
  <div class="card no-print">
   <div class="row"><div><label>학생</label><select id="gStudent"></select></div><button class="btn secondary" id="selectAll">전체 선택</button><button class="btn secondary" id="selectNone">전체 해제</button><button class="btn danger" id="deleteSelectedErrors">선택 오답 삭제</button><button class="btn" id="makeTest">시험지 미리보기</button></div>
   <div id="selectProblems" style="margin-top:12px"></div>
@@ -602,6 +624,25 @@ if(!state.viewAdjustments || typeof state.viewAdjustments!=='object') state.view
 const pdfDocCache=new Map();
 const imageCache=new Map();
 const problemFitMetaCache=new Map();
+
+// 시험지 설정(문제 자르기 방식·배치 방식·글자 크기). 학생/오답/교재 데이터와 분리해서 이 브라우저에만 저장한다.
+const LAYOUT_CFG_KEY='onepick_layout_settings_v1';
+const FONT_CHOICES=[8.5,9,9.5];
+function loadLayoutSettings(){
+ let x={};
+ try{x=JSON.parse(localStorage.getItem(LAYOUT_CFG_KEY)||'{}')||{}}catch(e){}
+ return {
+   cropMode:x.cropMode==='legacy'?'legacy':'v2',
+   layoutMode:x.layoutMode==='saved'?'saved':'auto',
+   fontPt:FONT_CHOICES.includes(Number(x.fontPt))?Number(x.fontPt):9
+ };
+}
+function saveLayoutSettings(patch){
+ const s={...loadLayoutSettings(),...patch};
+ try{localStorage.setItem(LAYOUT_CFG_KEY,JSON.stringify(s))}catch(e){}
+ imageCache.clear(); problemFitMetaCache.clear();
+ return s;
+}
 
 const CLOUD_CFG_KEY='onepick_cloud_config_v1';
 let cloudClient=null;
@@ -1368,14 +1409,25 @@ function validCropRect(c){
 }
 // 크롭 이미지 캐시와 여백 정보(problemFitMetaCache)가 함께 쓰는 키.
 // 이미지를 만들 때와 시험지 카드(data-view-key)에서 꺼낼 때 반드시 같은 함수를 사용한다.
-function problemViewKey(q,scale){
- const c=q?.fixedCrop;
+function problemViewKey(q,scale,c=q?.fixedCrop,source='legacy'){
  const sig=validCropRect(c)?[c.x0,c.y0,c.x1,c.y1].join(','):'';
- return q?.key+'@'+scale+'@'+sig;
+ return q?.key+'@'+scale+'@'+(source==='v2'?'v2:':'')+sig;
+}
+// cropQuestionImage가 실제로 사용한 키를 기억해 두고 시험지 카드에서 그대로 꺼내 쓴다.
+const lastViewKeyByQuestion=new Map();
+function viewKeyForQuestion(q,scale){
+ return lastViewKeyByQuestion.get(q.key+'@'+scale)||problemViewKey(q,scale);
 }
 function resolveAndLockQuestionCrop(q,pageW,pageH){
  // 한 번 확정된 fixedCrop은 이후 시험지 생성 횟수, 문제 선택 순서,
  // 다른 문제의 추가/삭제 여부와 상관없이 절대 다시 계산하지 않는다.
+ if(validCropRect(q?.fixedCrop)) return q.fixedCrop;
+ q.fixedCrop=computeLegacyCrop(q,pageW,pageH);
+ persistLockedCropsSoon();
+ return q.fixedCrop;
+}
+// 기존 방식 크롭 좌표 계산(저장하지 않음). 새 방식에서 기존 방식으로 대신할 때도 데이터를 바꾸지 않도록 분리했다.
+function computeLegacyCrop(q,pageW,pageH){
  if(validCropRect(q?.fixedCrop)) return q.fixedCrop;
 
  const c=q?.crop;
@@ -1402,15 +1454,13 @@ function resolveAndLockQuestionCrop(q,pageW,pageH){
  let y1=Math.max(y0+1,Math.min(pageH,Number(c.y1)));
  if(nextQ) y1=Math.min(y1,Math.max(y0+1,Number(nextQ.crop.y0)-5));
 
- // 소수점 오차까지 매번 달라지지 않도록 최초 확정값을 저장한다.
- q.fixedCrop={
+ // 소수점 오차까지 매번 달라지지 않도록 반올림한 값을 확정값으로 쓴다.
+ return {
    x0:Math.round(x0*1000)/1000,
    y0:Math.round(y0*1000)/1000,
    x1:Math.round(x1*1000)/1000,
    y1:Math.round(y1*1000)/1000
  };
- persistLockedCropsSoon();
- return q.fixedCrop;
 }
 
 async function cropQuestionImage(q,scale=2.4){
@@ -1419,11 +1469,25 @@ async function cropQuestionImage(q,scale=2.4){
  const vp=page.getViewport({scale});
  const pageW=vp.width/scale;
  const pageH=vp.height/scale;
- const c=resolveAndLockQuestionCrop(q,pageW,pageH);
+ // 새 방식: 글자·그림 덩어리 기준 크롭(별도 저장소). 계산에 실패한 문제는 기존 좌표를 저장하지 않고 그대로 사용한다.
+ // 기존 방식: 지금까지와 똑같이 fixedCrop을 확정·고정한다.
+ let c=null, cropSource='legacy', fontPt=null;
+ if(loadLayoutSettings().cropMode==='v2'){
+   try{
+     const r=await getCropV2(q);
+     if(r?.status==='ok' && validCropRect(r.rect)){c=r.rect; cropSource='v2';}
+     fontPt=r?.fontPt||null;
+   }catch(err){console.warn('새 방식 크롭 계산 실패, 기존 좌표 사용',err)}
+   if(!c) c=computeLegacyCrop(q,pageW,pageH);
+ }else{
+   c=resolveAndLockQuestionCrop(q,pageW,pageH);
+ }
 
- // 캐시 키에도 고정 크롭 좌표를 포함한다. 같은 문제는 언제 만들어도 같은 이미지가 된다.
- const ck=problemViewKey(q,scale);
+ // 캐시 키에도 크롭 좌표를 포함한다. 같은 문제는 언제 만들어도 같은 이미지가 된다.
+ const ck=problemViewKey(q,scale,c,cropSource);
+ lastViewKeyByQuestion.set(q.key+'@'+scale,ck);
  if(imageCache.has(ck))return imageCache.get(ck);
+ if(!fontPt) fontPt=await medianFontPtInRect(page,c);
 
  const canvas=document.createElement('canvas');
  canvas.width=Math.ceil(vp.width);
@@ -1511,7 +1575,10 @@ async function cropQuestionImage(q,scale=2.4){
    width:w,
    height:Math.max(1,bottom-top+1),
    inkX:inkLeft,
-   inkWidth:inkRight-inkLeft+1
+   inkWidth:inkRight-inkLeft+1,
+   fontPt,
+   imgScale:scale,
+   cropSource
  });
 
  const url=out.toDataURL('image/png');
@@ -1520,6 +1587,337 @@ async function cropQuestionImage(q,scale=2.4){
 }
 
 
+
+// ─────────────────────────────────────────────
+// 새 방식 크롭(v2): 글자 좌표만이 아니라 페이지에 실제로 그려진 글자·그림·그래프 덩어리를 찾아
+// 문제 번호 사이 구간에 속한 덩어리를 통째로 포함한다.
+// 결과는 별도 IndexedDB(onepickCropV2Db)에만 저장하며, 기존 crop/fixedCrop은 절대 바꾸지 않는다.
+// ─────────────────────────────────────────────
+const CROP_V2_VERSION=6;
+const CROP_V2_RENDER_SCALE=1.5;   // 분석용 렌더 배율(px/pt)
+const CROP_V2_BLOCK=2;            // 작은 틈을 잇기 위한 블록 크기(px)
+const CROP_V2_INK_LUM=230;        // 이보다 어두우면 내용으로 본다(연한 회색 선 포함)
+const CROP_V2_PAD=3;              // 내용 바깥 여백(pt)
+const CROP_V2_SUMMARY_KEY='onepick_cropv2_summary_v1';
+const cropV2Mem=new Map();
+const cropV2PagePending=new Map();
+const cropV2FakeMemo=new Map();
+
+function openCropV2DB(){
+ return new Promise((res,rej)=>{
+   const r=indexedDB.open('onepickCropV2Db',1);
+   r.onupgradeneeded=()=>{const db=r.result;if(!db.objectStoreNames.contains('crops'))db.createObjectStore('crops')};
+   r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error);
+ });
+}
+function cropV2Key(q){return `v${CROP_V2_VERSION}|${q.bookId}|${q.key}`}
+function cropV2AnchorSig(q){
+ const c=q.crop||{};
+ return [q.page,q.id,q.bundle?1:0,...[c.x0,c.y0,c.x1,c.y1].map(v=>Math.round(Number(v)*10)/10)].join(',');
+}
+async function cropV2DbGet(key){
+ const db=await openCropV2DB();
+ return new Promise((res,rej)=>{const tx=db.transaction('crops','readonly');const r=tx.objectStore('crops').get(key);r.onsuccess=()=>res(r.result||null);r.onerror=()=>rej(r.error)});
+}
+async function cropV2DbPutMany(entries){
+ const db=await openCropV2DB();
+ return new Promise((res,rej)=>{const tx=db.transaction('crops','readwrite');const st=tx.objectStore('crops');for(const e of entries)st.put(e,e.key);tx.oncomplete=()=>res();tx.onerror=()=>rej(tx.error)});
+}
+async function cropV2DbClearBook(bookId){
+ const db=await openCropV2DB();
+ // 이전 계산 방식(버전)의 결과까지 함께 지운다.
+ const mine=k=>{const s=String(k);const i=s.indexOf('|');return i>0&&s.slice(i+1).startsWith(bookId+'|')};
+ return new Promise((res,rej)=>{
+   const tx=db.transaction('crops','readwrite');const st=tx.objectStore('crops');
+   const r=st.openCursor();
+   r.onsuccess=()=>{const cur=r.result;if(!cur)return;if(mine(cur.key))cur.delete();cur.continue()};
+   tx.oncomplete=()=>res();tx.onerror=()=>rej(tx.error);
+ });
+}
+function loadCropV2Summary(){try{return JSON.parse(localStorage.getItem(CROP_V2_SUMMARY_KEY)||'{}')||{}}catch(e){return{}}}
+function saveCropV2Summary(bookId,info){
+ const all=loadCropV2Summary(); all[bookId]={...info,version:CROP_V2_VERSION};
+ try{localStorage.setItem(CROP_V2_SUMMARY_KEY,JSON.stringify(all))}catch(e){}
+}
+
+async function getCropV2(q){
+ const key=cropV2Key(q);
+ const doc=await getPdfDoc(q.bookId);
+ const fp=doc.fingerprints?.[0]||'';
+ const sig=cropV2AnchorSig(q);
+ const ok=e=>e && e.fp===fp && e.anchorSig===sig;
+ let e=cropV2Mem.get(key);
+ if(ok(e)) return e;
+ e=await cropV2DbGet(key).catch(()=>null);
+ if(ok(e)){cropV2Mem.set(key,e);return e}
+ const results=await computeCropV2PageCached(q.bookId,q.page);
+ return results.find(r=>r.key===key)||null;
+}
+function computeCropV2PageCached(bookId,pageNo){
+ const pk=bookId+'|'+pageNo;
+ if(cropV2PagePending.has(pk)) return cropV2PagePending.get(pk);
+ const p=(async()=>{
+   const results=await computeCropV2Page(bookId,pageNo);
+   for(const r of results) cropV2Mem.set(r.key,r);
+   await cropV2DbPutMany(results).catch(err=>console.warn('새 방식 크롭 저장 실패',err));
+   return results;
+ })().finally(()=>cropV2PagePending.delete(pk));
+ cropV2PagePending.set(pk,p);
+ return p;
+}
+
+// 본문 숫자(예: f^2024, 2000년)를 문제번호로 잘못 인식한 경우: 앞뒤 번호와 동떨어진 번호를 찾는다.
+// 문제은행에서 지우지 않고, 다른 문제의 경계로만 쓰지 않는다.
+function cropV2SuspectKeys(bookId){
+ if(cropV2FakeMemo.has(bookId)) return cropV2FakeMemo.get(bookId);
+ const qs=(state.questions||[]).filter(q=>q.bookId===bookId && !q.bundle && q.crop)
+   .map(q=>({q,n:parseInt(String(q.id).replace(/\D/g,''),10)})).filter(x=>Number.isFinite(x.n))
+   .sort((a,b)=>a.q.page-b.q.page||Number(a.q.crop.x0)-Number(b.q.crop.x0)||Number(a.q.crop.y0)-Number(b.q.crop.y0));
+ const out=new Set();
+ for(let i=0;i<qs.length;i++){
+   const p=qs[i-1]?.n, n=qs[i+1]?.n, c=qs[i].n;
+   const farP=p===undefined||Math.abs(c-p)>40, farN=n===undefined||Math.abs(n-c)>40;
+   const neighborsClose=p!==undefined&&n!==undefined&&Math.abs(n-p)<=6;
+   if(farP&&farN&&(neighborsClose||(c>=1000&&c>(p||0)*2))) out.add(qs[i].q.key);
+ }
+ cropV2FakeMemo.set(bookId,out);
+ return out;
+}
+
+function cropV2Components(mask,W,H){
+ const parent=new Int32Array(W*H).fill(-1);
+ const find=i=>{while(parent[i]!==i){parent[i]=parent[parent[i]];i=parent[i]}return i};
+ const uni=(a,b)=>{a=find(a);b=find(b);if(a!==b)parent[b]=a};
+ for(let y=0;y<H;y++)for(let x=0;x<W;x++){
+   const i=y*W+x;if(!mask[i])continue;parent[i]=i;
+   if(x>0&&mask[i-1])uni(i,i-1);
+   if(y>0){
+     if(mask[i-W])uni(i,i-W);
+     if(x>0&&mask[i-W-1])uni(i,i-W-1);
+     if(x<W-1&&mask[i-W+1])uni(i,i-W+1);
+   }
+ }
+ const comps=new Map();
+ for(let i=0;i<W*H;i++){
+   if(!mask[i])continue;const r=find(i);const x=i%W,y=(i/W)|0;
+   let c=comps.get(r);if(!c){c={x0:x,y0:y,x1:x,y1:y};comps.set(r,c)}
+   if(x<c.x0)c.x0=x;if(x>c.x1)c.x1=x;if(y<c.y0)c.y0=y;if(y>c.y1)c.y1=y;
+ }
+ return [...comps.values()];
+}
+
+// "07|4 명제의 역과 대우"처럼 두 자리·구분자·한두 자리 + 한글 제목. "0633 p: ..." 같은 문제 줄은 구분자가 없어 제외된다.
+const CROP_V2_HEADING_RE=/^(?:유형\s*\d|STEP\s*\d|\d{2}(?:\s*[|ㅣ│]\s*|\s+)\d{1,2}\s+[가-힣]|서술형|중단원|대단원|소단원|단원\s*마무리|[ⅠⅡⅢⅣⅤⅥⅦⅧ]\s*[.\-]?\s)/;
+
+async function computeCropV2Page(bookId,pageNo){
+ const S=CROP_V2_RENDER_SCALE,B=CROP_V2_BLOCK;
+ const doc=await getPdfDoc(bookId);
+ const fp=doc.fingerprints?.[0]||'';
+ const page=await doc.getPage(pageNo);
+ const v1=page.getViewport({scale:1}),vp=page.getViewport({scale:S});
+ const pageW=v1.width,pageH=v1.height;
+ const pageQs=(state.questions||[]).filter(q=>q.bookId===bookId&&q.page===pageNo&&validCropRect(q.crop));
+ const suspects=cropV2SuspectKeys(bookId);
+ const now=new Date().toISOString();
+ const base=q=>({key:cropV2Key(q),bookId,qKey:q.key,page:pageNo,fp,anchorSig:cropV2AnchorSig(q),version:CROP_V2_VERSION,computedAt:now});
+
+ // 1) 페이지를 그려 잉크(글자·그림) 덩어리를 찾는다.
+ const cv=document.createElement('canvas');cv.width=Math.ceil(vp.width);cv.height=Math.ceil(vp.height);
+ const ctx=cv.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,cv.width,cv.height);
+ await page.render({canvasContext:ctx,viewport:vp}).promise;
+ const px=ctx.getImageData(0,0,cv.width,cv.height).data;
+ const W=Math.ceil(cv.width/B),H=Math.ceil(cv.height/B);
+ const mask=new Uint8Array(W*H);
+ for(let y=0;y<cv.height;y++){const row=y*cv.width;for(let x=0;x<cv.width;x++){const i=(row+x)*4;if((px[i]+px[i+1]+px[i+2])/3<CROP_V2_INK_LUM)mask[((y/B)|0)*W+((x/B)|0)]=1}}
+ const toPt=v=>v*B/S;
+ const comps=cropV2Components(mask,W,H).map(k=>({x0:toPt(k.x0),y0:toPt(k.y0),x1:toPt(k.x1+1),y1:toPt(k.y1+1)}));
+ cv.width=cv.height=1;
+
+ // 2) 두 단 사이 경계: 페이지 가운데 근처에서 잉크가 가장 적은 세로줄.
+ const colInk=new Array(W).fill(0);
+ const yA=Math.floor(H*0.08),yB=Math.floor(H*0.94);
+ for(let y=yA;y<yB;y++)for(let x=0;x<W;x++)if(mask[y*W+x])colInk[x]++;
+ let gB=Math.round(W/2),best=Infinity;
+ for(let x=Math.floor(W*0.40);x<=Math.ceil(W*0.60);x++){
+   const v=colInk[x]+Math.abs(x-W/2)*0.01;
+   if(v<best){best=v;gB=x}
+ }
+ const gutter=toPt(gB+0.5);
+
+ // 3) 글자 정보: 문제번호 위치, 글자 크기, 단원 제목 줄.
+ const tc=await page.getTextContent();
+ const items=tc.items.filter(it=>it.str&&it.str.trim()).map(it=>{
+   const t=pdfjsLib.Util.transform(v1.transform,it.transform);
+   const h=Math.abs(t[3])||it.height||8;
+   const rot=Math.abs(it.transform[1])>1e-3||Math.abs(it.transform[2])>1e-3;   // 세로쓰기·회전 글자(쪽 옆 색인 탭 등)
+   return {str:it.str,x:t[4],y:t[5],w:it.width||0,h,rot};
+ });
+ const colOf=x=>x<gutter?0:1;
+
+ const anchors=[];
+ for(const q of pageQs){
+   const c=q.crop, col=colOf((Number(c.x0)+Number(c.x1))/2);
+   let top=Number(c.y0)+4, numItem=null;
+   if(q.bundle){
+     const first=String((q.members||[])[0]||String(q.id).split('~')[0]).replace(/\D/g,'');
+     const re=new RegExp('\\[?\\s*0*'+(+first)+'\\s*[~∼～\\-]');
+     const hdr=items.filter(it=>colOf(it.x)===col&&re.test(it.str)&&it.y>=Number(c.y0)-80&&it.y<=Number(c.y0)+70).sort((a,b)=>a.y-b.y)[0];
+     if(hdr){numItem=hdr;top=hdr.y-hdr.h-2}
+   }else{
+     const id=String(q.id||'').trim();
+     const re=/^\d{4}$/.test(id)?new RegExp('(?<!\\d)'+id+'(?!\\d)'):new RegExp('^\\D{0,4}\\s*0*'+(+id)+'\\.');
+     const expect=Number(c.y0)+18;
+     const hit=items.filter(it=>colOf(it.x)===col&&re.test(it.str)&&Math.abs(it.y-expect)<=30).sort((a,b)=>Math.abs(a.y-expect)-Math.abs(b.y-expect))[0];
+     if(hit){numItem=hit;top=hit.y-hit.h-2}
+   }
+   anchors.push({q,col,top,numItem,suspect:suspects.has(q.key)});
+ }
+ const anchorItems=new Set(anchors.map(a=>a.numItem).filter(Boolean));
+
+ // 단원 제목·쪽번호 줄: 같은 단, 같은 높이의 글자를 한 줄로 묶어 판단한다(문제번호가 있는 줄은 제외).
+ const lines=[];
+ for(const it of [...items].sort((a,b)=>a.y-b.y||a.x-b.x)){
+   const col=colOf(it.x);
+   let ln=lines.find(l=>l.col===col&&Math.abs(l.y-it.y)<=2.5);
+   if(!ln){ln={col,y:it.y,items:[]};lines.push(ln)}
+   ln.items.push(it);
+ }
+ const excludeZones=[];
+ for(const ln of lines){
+   if(ln.items.some(it=>anchorItems.has(it)))continue;
+   const its=ln.items.sort((a,b)=>a.x-b.x);
+   const text=its.map(i=>i.str).join(' ').replace(/\u0000/g,'').replace(/\s+/g,' ').trim();
+   const top=Math.min(...its.map(i=>i.y-i.h)),bot=Math.max(...its.map(i=>i.y+i.h*0.3));
+   const isFooter=bot>pageH*0.92&&/^(?:\d{1,3}(?:\s|$)|[ⅠⅡⅢⅣⅤⅥⅦⅧ])/.test(text);
+   if(isFooter||CROP_V2_HEADING_RE.test(text)){
+     excludeZones.push({x0:Math.min(...its.map(i=>i.x))-30,x1:Math.max(...its.map(i=>i.x+i.w))+30,y0:top-3,y1:bot+3});
+   }
+ }
+
+ // 4) 덩어리를 문제에 배정: 같은 단에서 "이 문제 번호 ~ 다음 문제 번호" 구간에 시작하는 덩어리.
+ const real=anchors.filter(a=>!a.suspect);
+ const bands=[];
+ for(const col of [0,1]){
+   const arr=real.filter(a=>a.col===col).sort((a,b)=>a.top-b.top);
+   arr.forEach((a,i)=>bands.push({a,col,y0:a.top,y1:arr[i+1]?arr[i+1].top:pageH+1,parts:[]}));
+ }
+ for(const k of comps){
+   const w=k.x1-k.x0,h=k.y1-k.y0;
+   if((w>=pageW*0.4&&h<5)||(h>=pageH*0.5&&w<3))continue;           // 페이지 장식선·단 구분선
+   if(k.x0<8||k.x1>pageW-8)continue;                                // 페이지 가장자리 탭
+   if(k.y0>pageH-12||k.y1<12)continue;                              // 인쇄소 표시줄(재단선 바깥)
+   if(k.x0>=gutter-5&&k.x1<=gutter+5)continue;                      // 단 사이 점선
+   const cy=(k.y0+k.y1)/2;
+   if(excludeZones.some(z=>cy>=z.y0&&cy<=z.y1&&k.x1>=z.x0&&k.x0<=z.x1))continue;
+   const col=colOf((k.x0+k.x1)/2);
+   const yRef=k.y0+Math.min(h*0.5,8);
+   const band=bands.find(b=>b.col===col&&yRef>=b.y0&&yRef<b.y1);
+   if(band)band.parts.push(k);
+ }
+
+ // 다음 문제 번호 바로 위(15pt 이내)에 있는 덩어리(첫 줄의 지수·큰 괄호 등)는
+ // 위 문제 내용과 다음 문제 내용 중 더 가까운 쪽에 붙인다.
+ for(const col of [0,1]){
+   const arr=bands.filter(b=>b.col===col).sort((a,b)=>a.y0-b.y0);
+   for(let i=0;i<arr.length-1;i++){
+     const cur=arr[i],nxt=arr[i+1];
+     const cand=cur.parts.filter(k=>k.y0>nxt.y0-15);
+     if(!cand.length)continue;
+     const rest=cur.parts.filter(k=>!cand.includes(k));
+     const prevBottom=rest.length?Math.max(...rest.map(k=>k.y1)):cur.y0;
+     const nextTop=Math.min(nxt.a.numItem?nxt.a.numItem.y-nxt.a.numItem.h:nxt.y0+4,...nxt.parts.map(k=>k.y0));
+     const move=cand.filter(k=>(nextTop-k.y1)<(k.y0-prevBottom));
+     if(move.length){cur.parts=cur.parts.filter(k=>!move.includes(k));nxt.parts.push(...move)}
+   }
+ }
+ // 내용과 멀리 떨어진 가는 가로 장식선(쪽 하단 띠 등)은 뺀다.
+ for(const b of bands){
+   const thin=k=>(k.y1-k.y0)<8&&(k.x1-k.x0)>=pageW*0.25;
+   const body=b.parts.filter(k=>!thin(k));
+   if(!body.length)continue;
+   const top=Math.min(...body.map(k=>k.y0)),bot=Math.max(...body.map(k=>k.y1));
+   b.parts=b.parts.filter(k=>!thin(k)||(k.y0<=bot+25&&k.y1>=top-25));
+ }
+
+ // 5) 결과 영역 + 검사(너무 작음 / 다른 문제와 겹침이면 기존 좌표 사용)
+ const results=[];
+ for(const b of bands){
+   const parts=[...b.parts];
+   if(b.a.numItem)parts.push({x0:b.a.numItem.x,y0:b.a.numItem.y-b.a.numItem.h,x1:b.a.numItem.x+b.a.numItem.w,y1:b.a.numItem.y+1});
+   let r=null;
+   for(const k of parts)r=r?{x0:Math.min(r.x0,k.x0),y0:Math.min(r.y0,k.y0),x1:Math.max(r.x1,k.x1),y1:Math.max(r.y1,k.y1)}:{...k};
+   if(r){
+     // 글자가 단 구분선에 닿아 장식선과 한 덩어리로 빠지는 경우가 있어, PDF 글자 위치로 좌우 폭을 한 번 더 확인한다.
+     for(const it of items){
+       if(it.rot||colOf(it.x)!==b.col||it.y<r.y0||it.y-it.h*0.2>r.y1)continue;
+       if(it.x>r.x1-1||it.x<r.x0-2)continue;   // 상자 안에서 시작하는 글자만(끝이 상자 밖으로 나간 글자 폭을 보충)
+       if(excludeZones.some(z=>it.y>=z.y0&&it.y<=z.y1&&it.x<=z.x1&&it.x+it.w>=z.x0))continue;
+       r.x0=Math.min(r.x0,it.x);r.x1=Math.max(r.x1,it.x+it.w);
+     }
+     // 여백은 단 경계를 넘지 않게 한다(내용 자체가 넘어가면 내용까지는 포함).
+     let x0=Math.max(0,r.x0-CROP_V2_PAD),x1=Math.min(pageW,r.x1+CROP_V2_PAD);
+     if(b.col===1)x0=Math.max(x0,Math.min(r.x0,gutter));
+     if(b.col===0)x1=Math.min(x1,Math.max(r.x1,gutter));
+     r={x0,y0:Math.max(0,r.y0-CROP_V2_PAD),x1,y1:Math.min(pageH,r.y1+CROP_V2_PAD)};
+   }
+   b.rect=r;
+ }
+ const overlap=(a,b)=>Math.min(a.x1,b.x1)-Math.max(a.x0,b.x0)>2&&Math.min(a.y1,b.y1)-Math.max(a.y0,b.y0)>2;
+ for(const b of bands){
+   let status='ok',reason='';
+   if(!b.rect){status='fallback';reason='no-content'}
+   else if(b.rect.x1-b.rect.x0<30||b.rect.y1-b.rect.y0<12){status='fallback';reason='too-small'}
+   else if(bands.some(o=>o!==b&&o.rect&&overlap(o.rect,b.rect))){status='fallback';reason='overlap'}
+   const rect=b.rect?{x0:Math.round(b.rect.x0*1000)/1000,y0:Math.round(b.rect.y0*1000)/1000,x1:Math.round(b.rect.x1*1000)/1000,y1:Math.round(b.rect.y1*1000)/1000}:null;
+   const inItems=rect?items.filter(it=>it.x>=rect.x0-1&&it.x<=rect.x1&&it.y>=rect.y0&&it.y<=rect.y1+2):[];
+   const hs=inItems.map(i=>i.h).filter(h=>h>=4&&h<=20).sort((a,b)=>a-b);
+   let fontPt=hs.length?hs[(hs.length/2)|0]:null;
+   if(fontPt&&(fontPt<5||fontPt>14))fontPt=null;
+   results.push({...base(b.a.q),rect,status,reason,fontPt});
+ }
+ for(const a of anchors.filter(a=>a.suspect)) results.push({...base(a.q),rect:null,status:'fallback',reason:'suspect-number',fontPt:null});
+ // 같은 쪽 문제 중 번호 위치를 찾지 못해 구간이 없는 문제
+ for(const q of pageQs) if(!results.some(r=>r.qKey===q.key)) results.push({...base(q),rect:null,status:'fallback',reason:'no-band',fontPt:null});
+ page.cleanup();
+ return results;
+}
+
+// 글자 크기(pt): 크롭 영역 안 글자들의 높이 중앙값. 수식이 그림으로 된 PDF 등에서 못 읽으면 null.
+async function medianFontPtInRect(page,c){
+ try{
+   const v1=page.getViewport({scale:1});
+   const tc=await page.getTextContent();
+   const hs=[];
+   for(const it of tc.items){
+     if(!it.str||!it.str.trim())continue;
+     const t=pdfjsLib.Util.transform(v1.transform,it.transform);
+     const h=Math.abs(t[3])||it.height||0;
+     if(t[4]>=c.x0-1&&t[4]<=c.x1&&t[5]>=c.y0&&t[5]<=c.y1+2&&h>=4&&h<=20)hs.push(h);
+   }
+   hs.sort((a,b)=>a-b);
+   const f=hs.length?hs[(hs.length/2)|0]:null;
+   return f&&f>=5&&f<=14?f:null;
+ }catch(e){return null}
+}
+
+// 교재 한 권을 새 방식으로 다시 계산(기존 저장값은 그대로 두고 새 방식 저장소만 갱신)
+async function recomputeCropV2ForBook(bookId,onProgress){
+ await cropV2DbClearBook(bookId);
+ for(const k of [...cropV2Mem.keys()]) if(k.startsWith(`v${CROP_V2_VERSION}|${bookId}|`)) cropV2Mem.delete(k);
+ cropV2FakeMemo.delete(bookId);
+ imageCache.clear(); problemFitMetaCache.clear();
+ const pages=[...new Set((state.questions||[]).filter(q=>q.bookId===bookId).map(q=>q.page))].sort((a,b)=>a-b);
+ let ok=0,fallback=0;const reasons={};
+ for(let i=0;i<pages.length;i++){
+   onProgress?.(i,pages.length);
+   const rs=await computeCropV2PageCached(bookId,pages[i]);
+   for(const r of rs){if(r.status==='ok')ok++;else{fallback++;reasons[r.reason]=(reasons[r.reason]||0)+1}}
+ }
+ onProgress?.(pages.length,pages.length);
+ const info={ok,fallback,reasons,at:new Date().toISOString()};
+ saveCropV2Summary(bookId,info);
+ return info;
+}
 
 const C1_CONFIRMED_VIEW_OVERRIDES={
  '0001':{zoom:1.12,removeLongLines:true},
@@ -1784,8 +2182,25 @@ function renderStudents(){
  $('studentTbody').innerHTML=state.students.map(s=>`<tr><td><b>${esc(s.name)}</b></td><td>${esc(s.school)}</td><td>${esc(s.grade)}</td><td>${esc(s.className||'')}</td><td>${esc(s.status||'재학')}</td><td><button class="btn danger" onclick="deleteStudent('${s.id}')">삭제</button></td></tr>`).join('');
 }
 function renderBooks(){
- $('bookList').innerHTML=state.books.map(b=>`<div class="book"><div><b>${esc(b.name)}</b><div class="muted small">${esc(b.fileName)} · ${b.pages}페이지 · 문제 ${state.questions.filter(q=>q.bookId===b.id).length}개 · 묶음 ${state.questions.filter(q=>q.bookId===b.id&&q.bundle).length}개</div></div><button class="btn danger" onclick="removeBook('${b.id}')">삭제</button></div>`).join('')||'<div class="muted">아직 업로드한 PDF가 없습니다.</div>';
+ const sum=loadCropV2Summary();
+ const v2Line=b=>{
+   const s=sum[b.id];
+   if(!s||s.version!==CROP_V2_VERSION) return '새 방식 자르기: 아직 계산 전 (시험지를 만들 때 필요한 쪽만 자동 계산)';
+   return `새 방식 자르기: 정상 ${s.ok}개 · 기존 좌표 사용 ${s.fallback}개 · ${esc(String(s.at||'').slice(0,10))}`;
+ };
+ $('bookList').innerHTML=state.books.map(b=>`<div class="book"><div><b>${esc(b.name)}</b><div class="muted small">${esc(b.fileName)} · ${b.pages}페이지 · 문제 ${state.questions.filter(q=>q.bookId===b.id).length}개 · 묶음 ${state.questions.filter(q=>q.bookId===b.id&&q.bundle).length}개</div><div class="muted small" id="cropV2Status_${esc(b.id)}">${v2Line(b)}</div></div><div class="row" style="gap:6px;margin:0"><button class="btn secondary" onclick="recomputeBookCropV2('${b.id}')">새 방식으로 다시 자르기</button><button class="btn danger" onclick="removeBook('${b.id}')">삭제</button></div></div>`).join('')||'<div class="muted">아직 업로드한 PDF가 없습니다.</div>';
 }
+window.recomputeBookCropV2=async bookId=>{
+ const el=$('cropV2Status_'+bookId);
+ try{
+   const info=await recomputeCropV2ForBook(bookId,(i,n)=>{if(el)el.textContent=`새 방식으로 자르는 중... ${i}/${n}쪽`});
+   renderBooks();
+   toast(`새 방식 자르기 완료: 정상 ${info.ok}개 · 기존 좌표 사용 ${info.fallback}개`);
+ }catch(err){
+   console.error(err);
+   if(el)el.textContent='새 방식 자르기 실패: '+(err.message||err);
+ }
+};
 function errorCard(e,actions=false){
  const q=state.questions.find(q=>q.key===e.questionKey);
  return `<div class="error-card"><div class="error-head"><div><b class="mono">${esc(q?.id||e.problemId)}</b> ${q?.bundle?'<span class="badge bundle">묶음문항</span>':''}<span class="muted small"> · ${esc(studentName(e.studentId))} · ${esc(bookName(e.bookId))} · 최초 오답일 ${e.firstDate}</span></div>${statusBadge(status(e))}</div><div style="margin-top:7px"><b>오답원인:</b> ${esc(e.cause)}${e.memo?' · '+esc(e.memo):''}</div>${actions&&status(e)!=='COMPLETE'?`<div class="stage"><span class="small muted">${stage(e)+1}차 결과:</span><button class="ok" onclick="markResult('${e.id}','O')">O 정답</button><button class="x" onclick="markResult('${e.id}','X')">X 오답</button></div>`:''}</div>`;
@@ -1994,6 +2409,7 @@ function saveCurrentProblemAdjustment(card){
  const qkey=card.dataset.questionKey||'';
  const q=state.questions.find(x=>x.key===qkey);
  if(!q) return toast('문제 정보를 찾지 못했습니다.');
+ if(card.dataset.autoFont) return toast('새 방식(자동 맞춤)에서는 조정값을 저장하지 않습니다.');
 
  const zoom=parseFloat(card.dataset.zoom||'1');
  const x=parseFloat(card.dataset.x||'0');
@@ -2011,6 +2427,7 @@ function clearCurrentProblemAdjustment(card){
  const qkey=card.dataset.questionKey||'';
  const q=state.questions.find(x=>x.key===qkey);
  if(!q) return toast('문제 정보를 찾지 못했습니다.');
+ if(card.dataset.autoFont) return toast('새 방식(자동 맞춤)에서는 저장값을 바꾸지 않습니다.');
 
  const key=viewAdjustKey(q);
  const all=ensureViewAdjustments();
@@ -2093,6 +2510,13 @@ function applyProblemView(card){
    scale=Math.min((ww*0.97)/nw,(wh*0.96)/nh);
    autoX=(ww-nw*scale)/2;
    autoY=topStart;
+ }
+
+ // 자동 배치: 저장된 배율 대신 "인쇄했을 때 본문 글자 크기"가 설정값이 되도록 배율을 정한다.
+ // (CSS 1px = 0.75pt, 크롭 이미지는 PDF 1pt당 imgScale px) 칸보다 크면 아래에서 자동 축소된다.
+ const autoFont=parseFloat(card.dataset.autoFont||'');
+ if(autoFont>0 && meta?.fontPt>0 && meta?.imgScale>0){
+   scale=(autoFont/0.75)/(meta.fontPt*meta.imgScale);
  }
 
  let finalScale=scale*zoom;
@@ -2234,6 +2658,32 @@ window.nudgeProblemWithWheel=(ev,img)=>{
  applyProblemView(card);
 };
 
+// 시험지 설정 카드: "새 방식 / 기존 방식" 스위치와 글자 크기
+function renderSheetSettings(){
+ const s=loadLayoutSettings();
+ const v2=s.cropMode==='v2'&&s.layoutMode==='auto';
+ const bV2=$('sheetModeV2'),bOld=$('sheetModeLegacy'),sel=$('sheetFontPt'),desc=$('sheetModeDesc');
+ if(!bV2)return;
+ bV2.className='btn'+(v2?'':' secondary');
+ bOld.className='btn'+(v2?' secondary':'');
+ sel.value=String(s.fontPt);
+ sel.disabled=!v2;
+ desc.innerHTML=v2
+   ?`<b>새 방식:</b> 글자·그림을 모두 포함해 문제를 자르고, 모든 문제를 칸에 맞춰 본문 글자 약 <b>${s.fontPt}pt</b>로 자동 배치합니다. 저장된 문제별 배율은 사용하지 않지만 지우지도 않습니다.`
+   :`<b>기존 방식:</b> 예전처럼 자르고, 문제별로 저장해 둔 배율·위치를 그대로 사용합니다. 언제든 새 방식으로 다시 바꿀 수 있습니다.`;
+}
+async function applySheetSettings(patch){
+ saveLayoutSettings(patch);
+ renderSheetSettings();
+ if($('testPreview')?.querySelector('.test-problem') && document.querySelectorAll('.gcheck:checked').length){
+   await $('makeTest').onclick();
+ }
+}
+$('sheetModeV2').onclick=()=>applySheetSettings({cropMode:'v2',layoutMode:'auto'}).then(()=>toast('새 방식으로 바꿨습니다.'));
+$('sheetModeLegacy').onclick=()=>applySheetSettings({cropMode:'legacy',layoutMode:'saved'}).then(()=>toast('기존 방식으로 바꿨습니다.'));
+$('sheetFontPt').onchange=e=>applySheetSettings({fontPt:Number(e.target.value)}).then(()=>toast(`글자 크기를 ${e.target.value}pt로 바꿨습니다.`));
+renderSheetSettings();
+
 window.addEventListener('resize',()=>{
  document.querySelectorAll('.test-problem').forEach(applyProblemView);
  updateSidePanel();
@@ -2287,6 +2737,28 @@ $('makeTest').onclick=async()=>{
    return {kind:'normal', rows:1, cols:1};
  };
 
+ // 자동 배치: 설정한 글자 크기(최소 = 설정값-1.5pt)로 들어가는 가장 작은 칸을 고른다.
+ // 칸 크기는 미리보기 A4 기준 이미지 영역(CSS px): 1칸 89×101.5mm, 세로2칸 89×220mm, 가로2칸 190×101.5mm, 한 장 190×220mm
+ const layoutCfg=loadLayoutSettings();
+ const autoLayout=layoutCfg.layoutMode==='auto';
+ const AUTO_CELLS=[
+   {kind:'normal',rows:1,cols:1,w:336,h:383},
+   {kind:'tall',rows:2,cols:1,w:336,h:831},
+   {kind:'wide',rows:1,cols:2,w:720,h:383},
+   {kind:'full',rows:2,cols:2,w:720,h:831}
+ ];
+ const chooseAutoLayout=(fit)=>{
+   if(!(fit?.fontPt>0) || !(fit?.inkWidth>0) || !(fit?.height>0)) return null;
+   const wPt=fit.inkWidth/fit.imgScale, hPt=fit.height/fit.imgScale;
+   const want=(layoutCfg.fontPt/0.75)/fit.fontPt;            // 목표 글자 크기일 때 CSS px / pt
+   const minFont=layoutCfg.fontPt-1.5;
+   const printed=cell=>fit.fontPt*Math.min(want,(cell.w-10)/wPt,(cell.h-12)/hPt)*0.75;
+   const [normal,tall,wide,full]=AUTO_CELLS;
+   if(printed(normal)>=minFont-0.01) return normal;
+   const two=[tall,wide].filter(c=>printed(c)>=minFont-0.01).sort((a,b)=>printed(b)-printed(a))[0];
+   return two||full;
+ };
+
  const rendered=[];
  for(const e of es){
    const q=state.questions.find(q=>q.key===e.questionKey);
@@ -2294,8 +2766,10 @@ $('makeTest').onclick=async()=>{
    let url='';
    try{url=await cropQuestionImage(q,3)}catch(err){}
    const meta=await loadImageMeta(url);
-   const layout=chooseReadableLayout(q,meta);
-   rendered.push({e,q,url,meta,layout});
+   const viewKey=viewKeyForQuestion(q,3);
+   const auto=autoLayout&&url?chooseAutoLayout(problemFitMetaCache.get(viewKey)):null;
+   const layout=auto||chooseReadableLayout(q,meta);
+   rendered.push({e,q,url,meta,layout,viewKey,auto:autoLayout&&!!url});
  }
 
  // 2x2 시험지 그리드에 실제 모양대로 배치
@@ -2350,16 +2824,17 @@ $('makeTest').onclick=async()=>{
      const url=item.url;
      const cls=item.layout.kind==='normal' ? '' : ` ${item.layout.kind}`;
      const pos=`grid-column:${item.col} / span ${item.layout.cols};grid-row:${item.row} / span ${item.layout.rows};`;
-      const baseZoom=getDefaultProblemZoom(q);
-      const savedAdj=getSavedViewAdjustment(q);
-      const forcedPageZoom=getC1PageViewOverride(q)?.zoom || 0;
+      // 자동 배치에서는 저장된 배율·위치를 쓰지 않는다(저장값은 그대로 보존).
+      const baseZoom=item.auto?1:getDefaultProblemZoom(q);
+      const savedAdj=item.auto?null:getSavedViewAdjustment(q);
+      const forcedPageZoom=item.auto?0:(getC1PageViewOverride(q)?.zoom || 0);
       const defaultZoom=savedAdj
         ? Math.max(Number(savedAdj.zoom)||1, forcedPageZoom||0)
         : baseZoom;
       const defaultX=savedAdj?.x ?? 0;
       const defaultY=savedAdj?.y ?? 0;
       const savedFlag=savedAdj?'1':'0';
-      problemsHtml += `<div class="test-problem${cls}" style="${pos}" data-view-key="${esc(problemViewKey(q,3))}" data-question-key="${esc(q.key)}" data-base-zoom="${baseZoom}" data-zoom="${defaultZoom}" data-default-zoom="${defaultZoom}" data-x="${defaultX}" data-y="${defaultY}" data-saved="${savedFlag}">
+      problemsHtml += `<div class="test-problem${cls}" style="${pos}" data-view-key="${esc(item.viewKey)}" data-question-key="${esc(q.key)}"${item.auto?` data-auto-font="${layoutCfg.fontPt}"`:''} data-base-zoom="${baseZoom}" data-zoom="${defaultZoom}" data-default-zoom="${defaultZoom}" data-x="${defaultX}" data-y="${defaultY}" data-saved="${savedFlag}">
        <h3>${globalIndex}. <span class="mono">문제번호 ${esc(q.id)}</span> <span class="problem-page">· 교재 p.${q.page}</span></h3>
        <div class="problem-meta">최초 오답일 ${e.firstDate}</div>
        <div class="problem-image-wrap">${url ? `<img class="preview-problem-img" src="${url}" alt="${esc(q.id)}" onload="applyProblemView(this.closest('.test-problem'))" onwheel="nudgeProblemWithWheel(event,this)">` : `<div class="note" style="width:100%">PDF 원본을 다시 업로드해야 합니다.</div>`}</div>
@@ -2393,7 +2868,9 @@ $('makeTest').onclick=async()=>{
   </div>
   <aside class="preview-sidepanel no-print">
     <h4>문제 조정</h4>
-    <div class="side-desc">문제를 클릭해 크기·위치를 조정한 뒤 <b>이 문제 조정값 저장</b>을 누르면 다음 시험지에도 그대로 적용됩니다.</div>
+    ${autoLayout
+      ? `<div class="side-desc"><b>새 방식(자동 맞춤)</b> · 글자 ${layoutCfg.fontPt}pt<br>모든 문제를 칸에 맞춰 자동 배치합니다. 여기서 조정한 크기·위치는 이번 미리보기에만 적용되고 저장되지 않습니다.</div>`
+      : `<div class="side-desc">문제를 클릭해 크기·위치를 조정한 뒤 <b>이 문제 조정값 저장</b>을 누르면 다음 시험지에도 그대로 적용됩니다.</div>`}
     <div class="selected-problem-box">
       <div class="label">선택된 문제</div>
       <div class="value" id="selectedProblemName">선택된 문제 없음</div>
@@ -2408,8 +2885,8 @@ $('makeTest').onclick=async()=>{
       <button type="button" data-action="right" title="오른쪽 이동">→</button>
       <button type="button" data-action="down" title="아래로 이동" style="grid-column:2 / span 1">↓</button>
     </div>
-    <button type="button" class="side-btn-wide" onclick="saveSelectedProblemAdjustment()">이 문제 조정값 저장</button>
-    <button type="button" class="side-btn-wide" onclick="clearSelectedProblemAdjustment()">저장값 초기화</button>
+    ${autoLayout?'':`<button type="button" class="side-btn-wide" onclick="saveSelectedProblemAdjustment()">이 문제 조정값 저장</button>
+    <button type="button" class="side-btn-wide" onclick="clearSelectedProblemAdjustment()">저장값 초기화</button>`}
     <button type="button" class="side-btn-wide" id="scrollSelectedProblem">선택 문제로 이동</button>
   </aside>
 </div>`;
