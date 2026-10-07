@@ -500,6 +500,17 @@ table{width:100%;border-collapse:separate;border-spacing:0;font-size:13px}th{bac
   <div style="margin-top:12px"><label>오답 메모</label><textarea id="rMemo" style="width:100%"></textarea></div>
  </div>
 
+ <div class="card">
+  <b>페이지 단위로 한꺼번에 등록</b>
+  <div class="row" style="margin-top:10px;align-items:flex-end">
+   <div style="flex:1;min-width:240px">
+    <label>페이지 (문제 버튼에 표시된 p.번호)</label>
+    <input id="rPages" placeholder="예: 10  /  10~30  /  5, 8, 10~12" style="width:100%">
+   </div>
+   <button class="btn" id="registerPages">페이지 전체 오답 등록</button>
+  </div>
+  <div class="muted small" style="margin-top:6px">위에서 고른 학생·최초 오답일·교재·오답원인으로 해당 페이지의 모든 문제를 등록합니다. 이미 등록된 문제는 건너뜁니다.</div>
+ </div>
 
  <div class="card">
    <div class="row">
@@ -557,7 +568,7 @@ table{width:100%;border-collapse:separate;border-spacing:0;font-size:13px}th{bac
   <div class="muted small" id="sheetModeDesc" style="margin-top:8px"></div>
  </div>
  <div class="card no-print">
-  <div class="row"><div><label>학생</label><select id="gStudent"></select></div><button class="btn secondary" id="selectAll">전체 선택</button><button class="btn secondary" id="selectNone">전체 해제</button><button class="btn danger" id="deleteSelectedErrors">선택 오답 삭제</button><button class="btn" id="makeTest">시험지 미리보기</button></div>
+  <div class="row"><div><label>학생</label><select id="gStudent"></select></div><button class="btn secondary" id="selectAll">전체 선택</button><button class="btn secondary" id="selectNone">전체 해제</button><button class="btn danger" id="deleteSelectedErrors">선택 오답 삭제</button><button class="btn" id="makeTest">시험지 미리보기</button><span id="gSelCount" class="small muted" style="align-self:center"></span></div>
   <div id="selectProblems" style="margin-top:12px"></div>
  </div>
  <div class="note no-print" style="margin-bottom:12px">
@@ -626,6 +637,10 @@ const imageCache=new Map();
 const problemFitMetaCache=new Map();
 
 // 시험지 설정(문제 자르기 방식·배치 방식·글자 크기). 학생/오답/교재 데이터와 분리해서 이 브라우저에만 저장한다.
+// 시험지 한 번에 만들 수 있는 권장 최대 문제 수.
+// 실측(2026-10-07, 이 PC): 40문제 15초 · 80문제 32초 · 120문제 55초 · 160문제 91초 · 240문제 179초.
+// 쪽이 늘수록 PDF 한 쪽당 시간이 길어지므로(1.2초→2.7초), 사양이 낮은 노트북에서도 1~2분 안에 끝나도록 100문제(약 25쪽)로 정함.
+const TEST_SHEET_MAX=100;
 const LAYOUT_CFG_KEY='onepick_layout_settings_v1';
 const FONT_CHOICES=[8.5,9,9.5];
 function loadLayoutSettings(){
@@ -2249,6 +2264,7 @@ function renderGenerator(){
    const q=state.questions.find(q=>q.key===e.questionKey);
    return `<label class="checkrow"><input class="gcheck" type="checkbox" value="${e.id}"><div><b class="mono">${esc(q?.id||'')}</b> ${q?.bundle?'<span class="badge bundle">묶음</span>':''}<span class="muted small"> · ${esc(bookName(e.bookId))} · p.${q?.page??'-'} · ${e.firstDate}</span></div></label>`;
  }).join('')||'<div class="muted">선택할 오답이 없습니다.</div>';
+ updateSelCount();
 }
 
 async function renderQuestionBank(){
@@ -2351,7 +2367,80 @@ function registerQuestion(qkey,btn=null){
  toast(q.bundle?`${q.id} 묶음문항을 한 문제로 등록했습니다.`:`${q.id} 오답 등록 완료`);
 }
 window.markResult=(id,res)=>{const e=state.errors.find(x=>x.id===id);if(!e||stage(e)>=5)return;e.results=e.results||[];e.results.push({result:res,date:todayISO()});saveState();toast(`${stage(e)}차 결과 저장`)};
-window.deleteStudent=id=>{if(!confirm('학생을 삭제할까요?'))return;state.students=state.students.filter(s=>s.id!==id);saveState()};
+// 학생을 삭제하면 그 학생의 오답 기록도 함께 지운다(남겨 두면 학생 없는 오답이 시험지·이력에 계속 남는다).
+window.deleteStudent=id=>{
+ const s=state.students.find(x=>x.id===id);
+ const n=state.errors.filter(e=>e.studentId===id).length;
+ if(!confirm(`'${s?.name||'학생'}' 학생을 삭제할까요?`+(n?`\n이 학생의 오답 기록 ${n}개도 함께 삭제됩니다.`:'')))return;
+ state.students=state.students.filter(x=>x.id!==id);
+ state.errors=state.errors.filter(e=>e.studentId!==id);
+ saveState();
+ toast(n?`학생과 오답 ${n}개를 삭제했습니다.`:'학생을 삭제했습니다.');
+};
+
+// "5, 8, 10~12" → [5,8,10,11,12]. 잘못 쓴 부분은 bad에 모은다.
+function parsePageSpec(text,maxPage){
+ const pages=new Set(),bad=[];
+ for(const raw of String(text||'').split(/[,\s]+/).map(t=>t.trim()).filter(Boolean)){
+   const m=raw.match(/^(\d+)(?:\s*[~∼～\-–]\s*(\d+))?$/);
+   if(!m){bad.push(raw);continue}
+   let a=+m[1],b=m[2]?+m[2]:a;
+   if(b<a)[a,b]=[b,a];
+   if(a<1||(maxPage&&b>maxPage)){bad.push(raw);continue}
+   for(let p=a;p<=b;p++)pages.add(p);
+ }
+ return {pages:[...pages].sort((x,y)=>x-y),bad};
+}
+// 연속된 쪽을 "10~12, 15"처럼 짧게 표시
+function formatPageList(pages){
+ const out=[];
+ for(let i=0;i<pages.length;i++){
+   let j=i;while(j+1<pages.length&&pages[j+1]===pages[j]+1)j++;
+   out.push(j>i?`${pages[i]}~${pages[j]}`:String(pages[i]));i=j;
+ }
+ return out.join(', ');
+}
+function registerPages(){
+ const sid=$('rStudent').value,date=$('rDate').value,bookId=$('rBook').value;
+ if(!sid)return toast('학생을 선택하세요.');
+ if(!date)return toast('최초 오답일을 선택하세요.');
+ if(!bookId)return toast('교재를 선택하세요.');
+ const book=state.books.find(b=>b.id===bookId);
+ const {pages,bad}=parsePageSpec($('rPages').value,book?.pages);
+ if(bad.length)return alert(`페이지를 이해하지 못했습니다: ${bad.join(', ')}\n예: 10  /  10~30  /  5, 8, 10~12 (이 교재는 1~${book?.pages||'?'}쪽)`);
+ if(!pages.length)return toast('등록할 페이지를 입력하세요.');
+
+ const pageSet=new Set(pages);
+ const qs=state.questions.filter(q=>q.bookId===bookId&&pageSet.has(q.page))
+   .sort((a,b)=>a.page-b.page||(Number(a.crop?.y0)||0)-(Number(b.crop?.y0)||0)||(Number(a.crop?.x0)||0)-(Number(b.crop?.x0)||0));
+ const already=new Set(state.errors.filter(e=>e.studentId===sid&&e.firstDate===date&&e.bookId===bookId).map(e=>e.questionKey));
+ const todo=qs.filter(q=>!already.has(q.key));
+ const emptyPages=pages.filter(p=>!qs.some(q=>q.page===p));
+ const studentErrCount=state.errors.filter(e=>e.studentId===sid).length+todo.length;
+
+ if(!todo.length){
+   return alert(`등록할 새 문제가 없습니다.`+(qs.length?`\n입력한 쪽의 문제 ${qs.length}개는 이미 같은 날짜로 등록되어 있습니다.`:'')+(emptyPages.length?`\n문제가 없는 쪽: ${formatPageList(emptyPages)}쪽`:''));
+ }
+ const lines=[
+   `학생: ${studentName(sid)}  ·  교재: ${book?.name||''}  ·  최초 오답일: ${date}`,
+   ``,
+   `${formatPageList(pages)}쪽${pages.length>1?`(${pages.length}개 쪽)`:''}, ${todo.length}개 문제를 오답으로 등록합니다.`
+ ];
+ if(qs.length>todo.length)lines.push(`이미 등록된 ${qs.length-todo.length}개는 건너뜁니다.`);
+ if(emptyPages.length)lines.push(``,`※ 문제가 없는 쪽: ${formatPageList(emptyPages)}쪽`);
+ if(studentErrCount>TEST_SHEET_MAX)lines.push(``,`※ 이 학생의 오답이 ${studentErrCount}개가 됩니다. 시험지는 한 번에 ${TEST_SHEET_MAX}문제 이하로 골라 만들어 주세요.`);
+ if(!confirm(lines.join('\n')))return;
+
+ const now=new Date().toISOString(),cause=$('rCause').value,memo=$('rMemo').value.trim();
+ todo.forEach((q,i)=>state.errors.push({
+   id:'E'+Date.now()+i.toString(36)+Math.random().toString(36).slice(2,5),
+   studentId:sid,bookId:q.bookId,questionKey:q.key,problemId:q.id,
+   firstDate:date,cause,memo,results:[],createdAt:now
+ }));
+ $('rMemo').value='';$('rPages').value='';
+ saveState();
+ toast(`${todo.length}개 문제를 오답으로 등록했습니다.`);
+}
 window.removeBook=async id=>{if(!confirm('교재와 해당 문제은행을 삭제할까요? 오답 기록도 함께 삭제됩니다.'))return;state.books=state.books.filter(b=>b.id!==id);const keys=new Set(state.questions.filter(q=>q.bookId===id).map(q=>q.key));state.questions=state.questions.filter(q=>q.bookId!==id);state.errors=state.errors.filter(e=>!keys.has(e.questionKey));await deletePdf(id);pdfDocCache.delete(id);saveState()};
 
 function renderAll(){renderSelectors();renderDashboard();renderStudents();renderBooks();renderRecent();renderHistory();renderToday();renderGenerator();renderQuestionBank()}
@@ -2363,9 +2452,13 @@ $('prepareWantPdf').onclick=async()=>{try{await prepareWantPdf($('sourcePdfFile'
 $('sourcePdfFile').onchange=()=>{setPreparedFile(null);$('preparedBox').classList.add('hidden');$('prepareStatus').classList.add('hidden')};
 $('pdfFile').onchange=()=>{$('analyzePdf').disabled=!$('pdfFile').files[0]};
 $('analyzePdf').onclick=async()=>{try{$('analyzePdf').disabled=true;await analyzeUploadedPdf($('pdfFile').files[0],$('bookName').value.trim())}catch(e){console.error(e);alert('PDF 분석 중 오류가 발생했습니다.\n'+e.message)}finally{$('analyzePdf').disabled=!$('pdfFile').files[0]}};
+$('registerPages').onclick=registerPages;
+$('rPages').onkeydown=e=>{if(e.key==='Enter')registerPages()};
 $('rBook').onchange=renderQuestionBank;$('qSearch').oninput=renderQuestionBank;$('qFilter').onchange=renderQuestionBank;$('rStudent').onchange=renderQuestionBank;$('rDate').onchange=renderQuestionBank;
 $('hStudent').onchange=renderHistory;$('hAll').onclick=()=>{$('hStudent').value='';renderHistory()};$('gStudent').onchange=renderGenerator;
-$('selectAll').onclick=()=>document.querySelectorAll('.gcheck').forEach(x=>x.checked=true);$('selectNone').onclick=()=>document.querySelectorAll('.gcheck').forEach(x=>x.checked=false);
+// 선택한 문제 수 표시(권장 최대를 넘으면 빨간색)
+function updateSelCount(){const el=$('gSelCount');if(!el)return;const n=document.querySelectorAll('.gcheck:checked').length;el.textContent=n?`선택 ${n}문제${n>TEST_SHEET_MAX?` · 권장 ${TEST_SHEET_MAX}문제 이하로 나눠 주세요`:''}`:'';el.style.color=n>TEST_SHEET_MAX?'#c0392b':'';el.style.fontWeight=n>TEST_SHEET_MAX?'700':''}
+$('selectAll').onclick=()=>{document.querySelectorAll('.gcheck').forEach(x=>x.checked=true);updateSelCount()};$('selectNone').onclick=()=>{document.querySelectorAll('.gcheck').forEach(x=>x.checked=false);updateSelCount()};$('selectProblems').addEventListener('change',updateSelCount);
 $('deleteSelectedErrors').onclick=()=>{
  const ids=[...document.querySelectorAll('.gcheck:checked')].map(x=>x.value);
  if(!ids.length) return toast('삭제할 오답을 선택하세요.');
@@ -2692,6 +2785,7 @@ window.addEventListener('resize',()=>{
 $('makeTest').onclick=async()=>{
  const ids=[...document.querySelectorAll('.gcheck:checked')].map(x=>x.value);
  if(!ids.length)return toast('시험지에 넣을 문제를 선택하세요.');
+ if(ids.length>TEST_SHEET_MAX && !confirm(`선택한 문제가 ${ids.length}개입니다.\n한 번에 ${TEST_SHEET_MAX}문제를 넘으면 미리보기와 PDF 저장이 매우 느려지거나 실패할 수 있습니다.\n${TEST_SHEET_MAX}문제 이하로 나눠서 만드는 것을 권장합니다.\n\n그래도 계속할까요?`)) return;
  const es=ids
    .map(id=>state.errors.find(e=>e.id===id))
    .filter(Boolean)
