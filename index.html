@@ -1703,6 +1703,19 @@ function cropV2SuspectKeys(bookId){
  return out;
 }
 
+// 오답 등록 화면·페이지 단위 등록에서 숨길 "잘못 등록된 문제번호"(본문 숫자·지수 등) 목록.
+// 새 방식 크롭 계산에서 의심 번호로 판정된 문제를 모은다. 문제은행 데이터는 지우지 않는다.
+const hiddenQuestionMemo=new Map();
+async function getHiddenQuestionKeys(bookId){
+ if(hiddenQuestionMemo.has(bookId))return hiddenQuestionMemo.get(bookId);
+ const out=new Set(cropV2SuspectKeys(bookId));
+ for(const q of (state.questions||[]).filter(q=>q.bookId===bookId)){
+   try{const r=await getCropV2(q);if(r?.reason==='suspect-number')out.add(q.key)}catch(e){}
+ }
+ hiddenQuestionMemo.set(bookId,out);
+ return out;
+}
+
 function cropV2Components(mask,W,H){
  const parent=new Int32Array(W*H).fill(-1);
  const find=i=>{while(parent[i]!==i){parent[i]=parent[parent[i]];i=parent[i]}return i};
@@ -2057,6 +2070,7 @@ async function recomputeCropV2ForBook(bookId,onProgress){
  await cropV2DbClearBook(bookId);
  for(const k of [...cropV2Mem.keys()]) if(k.startsWith(`v${CROP_V2_VERSION}|${bookId}|`)) cropV2Mem.delete(k);
  cropV2FakeMemo.delete(bookId);
+ hiddenQuestionMemo.delete(bookId);
  imageCache.clear(); problemFitMetaCache.clear();
  const pages=[...new Set((state.questions||[]).filter(q=>q.bookId===bookId).map(q=>q.page))].sort((a,b)=>a-b);
  let ok=0,fallback=0;const reasons={},failedPages=[];
@@ -2411,6 +2425,12 @@ async function renderQuestionBank(){
  const bookId=$('rBook').value;
  if(!bookId){box.innerHTML='<div class="muted">교재를 먼저 선택하세요.</div>';return}
  let qs=state.questions.filter(q=>q.bookId===bookId);
+ // 잘못 등록된 문제번호(본문 숫자·지수)는 숨긴다. 목록 확인(처음 한 번 계산)이 끝나면 다시 그린다.
+ const knownHidden=hiddenQuestionMemo.get(bookId);
+ const hidden=knownHidden||cropV2SuspectKeys(bookId);
+ if(!knownHidden)getHiddenQuestionKeys(bookId).then(s=>{if($('rBook').value===bookId&&s.size!==hidden.size)renderQuestionBank()}).catch(()=>{});
+ const hiddenCount=qs.filter(q=>hidden.has(q.key)).length;
+ qs=qs.filter(q=>!hidden.has(q.key));
  const term=$('qSearch').value.trim();
  if(term)qs=qs.filter(q=>q.id.includes(term));
  const filter=$('qFilter').value;
@@ -2449,6 +2469,7 @@ async function renderQuestionBank(){
      <span class="mini">p.${q.page}${q.bundle?' · 공통문제 묶음':''}</span>
    </button>
  `).join('')||'<div class="muted">문제가 없습니다.</div>';
+ if(hiddenCount)box.insertAdjacentHTML('beforeend',`<div class="muted small" style="grid-column:1/-1;margin-top:6px">본문 숫자를 문제번호로 잘못 읽은 항목 ${hiddenCount}개는 숨겼습니다.</div>`);
  box.querySelectorAll('.numbtn').forEach(el=>el.onclick=()=>registerQuestion(el.dataset.q,el));
 }
 function safeId(s){return btoa(unescape(encodeURIComponent(s))).replace(/[^A-Za-z0-9]/g,'').slice(0,40)}
@@ -2539,7 +2560,7 @@ function formatPageList(pages){
  }
  return out.join(', ');
 }
-function registerPages(){
+async function registerPages(){
  const sid=$('rStudent').value,date=$('rDate').value,bookId=$('rBook').value;
  if(!sid)return toast('학생을 선택하세요.');
  if(!date)return toast('최초 오답일을 선택하세요.');
@@ -2550,7 +2571,11 @@ function registerPages(){
  if(!pages.length)return toast('등록할 페이지를 입력하세요.');
 
  const pageSet=new Set(pages);
- const qs=state.questions.filter(q=>q.bookId===bookId&&pageSet.has(q.page))
+ if(!hiddenQuestionMemo.has(bookId))toast('문제 목록을 확인하는 중입니다...');
+ const hidden=await getHiddenQuestionKeys(bookId);
+ const inRange=state.questions.filter(q=>q.bookId===bookId&&pageSet.has(q.page));
+ const skippedFake=inRange.filter(q=>hidden.has(q.key)).length;
+ const qs=inRange.filter(q=>!hidden.has(q.key))
    .sort((a,b)=>a.page-b.page||(Number(a.crop?.y0)||0)-(Number(b.crop?.y0)||0)||(Number(a.crop?.x0)||0)-(Number(b.crop?.x0)||0));
  const already=new Set(state.errors.filter(e=>e.studentId===sid&&e.firstDate===date&&e.bookId===bookId).map(e=>e.questionKey));
  const todo=qs.filter(q=>!already.has(q.key));
@@ -2566,6 +2591,7 @@ function registerPages(){
    `${formatPageList(pages)}쪽${pages.length>1?`(${pages.length}개 쪽)`:''}, ${todo.length}개 문제를 오답으로 등록합니다.`
  ];
  if(qs.length>todo.length)lines.push(`이미 등록된 ${qs.length-todo.length}개는 건너뜁니다.`);
+ if(skippedFake)lines.push(`본문 숫자를 문제번호로 잘못 읽은 항목 ${skippedFake}개는 제외합니다.`);
  if(emptyPages.length)lines.push(``,`※ 문제가 없는 쪽: ${formatPageList(emptyPages)}쪽`);
  if(studentErrCount>TEST_SHEET_MAX)lines.push(``,`※ 이 학생의 오답이 ${studentErrCount}개가 됩니다. 시험지는 한 번에 ${TEST_SHEET_MAX}문제 이하로 골라 만들어 주세요.`);
  if(!confirm(lines.join('\n')))return;
