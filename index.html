@@ -1608,7 +1608,7 @@ async function cropQuestionImage(q,scale=2.4){
 // 문제 번호 사이 구간에 속한 덩어리를 통째로 포함한다.
 // 결과는 별도 IndexedDB(onepickCropV2Db)에만 저장하며, 기존 crop/fixedCrop은 절대 바꾸지 않는다.
 // ─────────────────────────────────────────────
-const CROP_V2_VERSION=6;
+const CROP_V2_VERSION=8;
 const CROP_V2_RENDER_SCALE=1.5;   // 분석용 렌더 배율(px/pt)
 const CROP_V2_BLOCK=2;            // 작은 틈을 잇기 위한 블록 크기(px)
 const CROP_V2_INK_LUM=230;        // 이보다 어두우면 내용으로 본다(연한 회색 선 포함)
@@ -1759,6 +1759,29 @@ async function computeCropV2Page(bookId,pageNo){
  }
  const gutter=toPt(gB+0.5);
 
+ // 2-1) 소단원 제목 띠: 아주 연한 색이 단 너비의 40% 이상을 채운 높이 8~30pt의 가로 띠(일반 글줄은 10~15%).
+ //      (글자 정보가 없는 PDF에서도 모양으로 찾기 위해 픽셀로 판단)
+ const lightZones=[];
+ {
+   const gx=Math.round(gutter*S),W0=Math.ceil(vp.width),H0=Math.ceil(vp.height);
+   const real=comps.filter(k=>k.x0>=8&&k.x1<=pageW-8);
+   const ext=[
+     [Math.min(...real.filter(k=>(k.x0+k.x1)/2<gutter).map(k=>k.x0),gutter-1),gutter],
+     [gutter,Math.max(...real.filter(k=>(k.x0+k.x1)/2>=gutter).map(k=>k.x1),gutter+1)]
+   ];
+   for(const col of [0,1]){
+     const xa=Math.max(0,Math.round(ext[col][0]*S)),xb=Math.min(W0,Math.round(ext[col][1]*S));
+     const need=(xb-xa)*0.4;   // 띠 안의 제목 글자 때문에 줄마다 연한 색 비율이 55% 안팎까지 내려간다
+     let run=-1;
+     for(let y=0;y<=H0;y++){
+       let n=0;
+       if(y<H0){const row=y*W0;for(let x=Math.max(xa,col?gx:0);x<(col?xb:Math.min(xb,gx));x++){const i=(row+x)*4;const l=(px[i]+px[i+1]+px[i+2])/3;if(l>=215&&l<252)n++}}
+       if(y<H0&&n>=need){if(run<0)run=y}
+       else if(run>=0){const h=(y-run)/S;if(h>=8&&h<=30)lightZones.push({col,y0:run/S,y1:y/S});run=-1}
+     }
+   }
+ }
+
  // 3) 글자 정보: 문제번호 위치, 글자 크기, 단원 제목 줄.
  const tc=await page.getTextContent();
  const items=tc.items.filter(it=>it.str&&it.str.trim()).map(it=>{
@@ -1772,12 +1795,18 @@ async function computeCropV2Page(bookId,pageNo){
  const anchors=[];
  for(const q of pageQs){
    const c=q.crop, col=colOf((Number(c.x0)+Number(c.x1))/2);
-   let top=Number(c.y0)+4, numItem=null;
+   let top=Number(c.y0)+4, numItem=null, refTop=null;
    if(q.bundle){
      const first=String((q.members||[])[0]||String(q.id).split('~')[0]).replace(/\D/g,'');
      const re=new RegExp('\\[?\\s*0*'+(+first)+'\\s*[~∼～\\-]');
      const hdr=items.filter(it=>colOf(it.x)===col&&re.test(it.str)&&it.y>=Number(c.y0)-80&&it.y<=Number(c.y0)+70).sort((a,b)=>a.y-b.y)[0];
      if(hdr){numItem=hdr;top=hdr.y-hdr.h-2}
+     else{
+       // 묶음 머리글 "[0129~0132]"이 글자 정보에 없으면 첫 문제 번호(0129) 위치를 기준으로 쓴다(제목 띠 판단용).
+       const re2=new RegExp('(?<!\\d)0*'+(+first)+'(?!\\d)');
+       const mem=items.filter(it=>colOf(it.x)===col&&re2.test(it.str)&&it.y>=Number(c.y0)-10&&it.y<=Number(c.y0)+90).sort((a,b)=>a.y-b.y)[0];
+       if(mem)refTop=mem.y-mem.h;
+     }
    }else{
      const id=String(q.id||'').trim();
      const re=/^\d{4}$/.test(id)?new RegExp('(?<!\\d)'+id+'(?!\\d)'):new RegExp('^\\D{0,4}\\s*0*'+(+id)+'\\.');
@@ -1785,7 +1814,8 @@ async function computeCropV2Page(bookId,pageNo){
      const hit=items.filter(it=>colOf(it.x)===col&&re.test(it.str)&&Math.abs(it.y-expect)<=30).sort((a,b)=>Math.abs(a.y-expect)-Math.abs(b.y-expect))[0];
      if(hit){numItem=hit;top=hit.y-hit.h-2}
    }
-   anchors.push({q,col,top,numItem,suspect:suspects.has(q.key)});
+   if(numItem)refTop=numItem.y-numItem.h;
+   anchors.push({q,col,top,numItem,refTop,suspect:suspects.has(q.key)});
  }
  const anchorItems=new Set(anchors.map(a=>a.numItem).filter(Boolean));
 
@@ -1852,6 +1882,36 @@ async function computeCropV2Page(bookId,pageNo){
    if(!body.length)continue;
    const top=Math.min(...body.map(k=>k.y0)),bot=Math.max(...body.map(k=>k.y1));
    b.parts=b.parts.filter(k=>!thin(k)||(k.y0<=bot+25&&k.y1>=top-25));
+ }
+
+ // 문제 가장자리에 붙은 비(非)문제 요소 떼기 — 글자 정보 없이 모양만으로 판단(교재 공통).
+ //  · 위: 문제 번호(묶음은 머리글/첫 번호)보다 위에 있는 소단원 제목 띠와 그 위의 것
+ //  · 아래: 내용 끝에서 12pt 이상 떨어진 꼬리말(쪽 아래 60pt 안의 한 줄), 아주 작은 표시(4×6pt 이하), 소단원 제목 띠
+ const cyOf=k=>(k.y0+k.y1)/2;
+ for(const b of bands){
+   const zones=lightZones.filter(z=>z.col===b.col);
+   const ref=b.a.refTop;
+   if(ref!=null){
+     const zTop=zones.filter(z=>z.y1<=ref+2&&z.y1>=b.y0-40).sort((p,q)=>q.y1-p.y1)[0];
+     if(zTop)b.parts=b.parts.filter(k=>cyOf(k)>zTop.y1);
+   }
+   for(let guard=0;guard<12&&b.parts.length>1;guard++){
+     const sorted=[...b.parts].sort((p,q)=>p.y0-q.y0);
+     let split=-1,runMax=-Infinity;
+     for(let i=0;i<sorted.length;i++){
+       if(i>0&&sorted[i].y0-runMax>=12)split=i;
+       runMax=Math.max(runMax,sorted[i].y1);
+     }
+     if(split<1)break;
+     const tail=sorted.slice(split);
+     const ty0=Math.min(...tail.map(k=>k.y0)),ty1=Math.max(...tail.map(k=>k.y1));
+     const isFooter=ty0>=pageH-60&&ty1-ty0<=20;
+     const isSpeck=tail.every(k=>k.x1-k.x0<=4&&k.y1-k.y0<=6);
+     const isHeading=ty1-ty0<=30&&zones.some(z=>z.y0<=ty1&&z.y1>=ty0);
+     if(!(isFooter||isSpeck||isHeading))break;
+     const drop=new Set(tail);
+     b.parts=b.parts.filter(k=>!drop.has(k));
+   }
  }
 
  // 5) 결과 영역 + 검사(너무 작음 / 다른 문제와 겹침이면 기존 좌표 사용)
