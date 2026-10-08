@@ -1612,7 +1612,7 @@ async function cropQuestionImage(q,scale=2.4){
 // 문제 번호 사이 구간에 속한 덩어리를 통째로 포함한다.
 // 결과는 별도 IndexedDB(onepickCropV2Db)에만 저장하며, 기존 crop/fixedCrop은 절대 바꾸지 않는다.
 // ─────────────────────────────────────────────
-const CROP_V2_VERSION=12;
+const CROP_V2_VERSION=11;
 const CROP_V2_RENDER_SCALE=1.5;   // 분석용 렌더 배율(px/pt)
 const CROP_V2_BLOCK=2;            // 작은 틈을 잇기 위한 블록 크기(px)
 const CROP_V2_INK_LUM=230;        // 이보다 어두우면 내용으로 본다(연한 회색 선 포함)
@@ -1825,11 +1825,6 @@ async function computeCropV2Page(bookId,pageNo){
    if(numItem)refTop=numItem.y-numItem.h;
    anchors.push({q,col,top,numItem,refTop,suspect:suspects.has(q.key)});
  }
- // 본문 속 숫자(예: f²⁰²⁴의 지수)를 문제번호로 잘못 등록한 경우: 같은 쪽 다른 문제번호보다 번호 글자가 훨씬 작다(75% 미만).
- {
-   const nh=anchors.filter(a=>a.numItem&&!a.q.bundle).map(a=>a.numItem.h).sort((x,y)=>x-y);
-   if(nh.length>=2){const med=nh[nh.length>>1];for(const a of anchors)if(a.numItem&&!a.q.bundle&&a.numItem.h<med*0.75)a.suspect=true}
- }
  const anchorItems=new Set(anchors.map(a=>a.numItem).filter(Boolean));
 
  // 단원 제목·쪽번호 줄: 같은 단, 같은 높이의 글자를 한 줄로 묶어 판단한다(문제번호가 있는 줄은 제외).
@@ -1984,30 +1979,13 @@ async function computeCropV2Page(bookId,pageNo){
    let fontPt=hs.length?hs[(hs.length/2)|0]:null;
    if(fontPt&&(fontPt<5||fontPt>14))fontPt=null;
    fontPt=correctFontByKorean(fontPt,inItems);
-   // PDF에 보이지 않는 글자(숨은 정답 등)가 작게 들어 있으면 글자 크기를 작게 잘못 잰다. 실제로 그려진 글자만으로 잰 값이 1.2배 이상 크면 그 값을 쓴다.
-   if(fontPt&&inItems.length){
-     const drawn=it=>{const bx=Math.floor((it.x+it.w/2)*S/B),by=Math.floor((it.y-it.h*0.35)*S/B);for(let dy=-2;dy<=2;dy++)for(let dx=-3;dx<=3;dx++){const x=bx+dx,y=by+dy;if(x>=0&&y>=0&&x<W&&y<H&&mask[y*W+x])return true}return false};
-     const vis=inItems.filter(it=>it.w>0&&drawn(it));
-     const vh=vis.map(i=>i.h).filter(h=>h>=4&&h<=20).sort((a,b)=>a-b);
-     let vf=vh.length?vh[(vh.length/2)|0]:null;
-     if(vf&&(vf<5||vf>14))vf=null;
-     vf=correctFontByKorean(vf,vis);
-     if(vf&&vf>=fontPt*1.2)fontPt=vf;
-   }
    results.push({...base(b.a.q),rect,status,reason,fontPt});
  }
  if(results.some(r=>r.reason==='no-content'||r.reason==='too-small')){
    page.cleanup();
    throw new Error(`p.${pageNo} 내용이 비어 있는 문제가 있음(그리기 이상)`);
  }
- // 잘못 등록된 번호의 카드에는 그 숫자가 들어 있는 실제 문제 전체를 보여 준다(반쪽짜리 기존 좌표 대신).
- for(const a of anchors.filter(a=>a.suspect)){
-   const y=a.numItem?a.numItem.y:a.top;
-   const host=bands.find(b=>b.col===a.col&&y>=b.y0&&y<b.y1);
-   const hr=host&&results.find(r=>r.qKey===host.a.q.key);
-   if(hr&&hr.status==='ok')results.push({...base(a.q),rect:{...hr.rect},status:'ok',reason:'suspect-number',hostId:host.a.q.id,fontPt:hr.fontPt});
-   else results.push({...base(a.q),rect:null,status:'fallback',reason:'suspect-number',fontPt:null});
- }
+ for(const a of anchors.filter(a=>a.suspect)) results.push({...base(a.q),rect:null,status:'fallback',reason:'suspect-number',fontPt:null});
  // 같은 쪽 문제 중 번호 위치를 찾지 못해 구간이 없는 문제
  for(const q of pageQs) if(!results.some(r=>r.qKey===q.key)) results.push({...base(q),rect:null,status:'fallback',reason:'no-band',fontPt:null});
  page.cleanup();
