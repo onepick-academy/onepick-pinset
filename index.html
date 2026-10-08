@@ -1612,7 +1612,7 @@ async function cropQuestionImage(q,scale=2.4){
 // 문제 번호 사이 구간에 속한 덩어리를 통째로 포함한다.
 // 결과는 별도 IndexedDB(onepickCropV2Db)에만 저장하며, 기존 crop/fixedCrop은 절대 바꾸지 않는다.
 // ─────────────────────────────────────────────
-const CROP_V2_VERSION=9;
+const CROP_V2_VERSION=10;
 const CROP_V2_RENDER_SCALE=1.5;   // 분석용 렌더 배율(px/pt)
 const CROP_V2_BLOCK=2;            // 작은 틈을 잇기 위한 블록 크기(px)
 const CROP_V2_INK_LUM=230;        // 이보다 어두우면 내용으로 본다(연한 회색 선 포함)
@@ -1922,6 +1922,26 @@ async function computeCropV2Page(bookId,pageNo){
    }
  }
 
+ // 문제 내용 아래에 다음 유형의 제목 줄(글자로 찾은 "유형 04 …" 등)이 있으면, 그 제목부터 아래는 개념 설명 박스이므로 문제가 아니다.
+ // 제목 바로 위에 붙은 짧은 한 줄(예: "▶ 개념원리 … 38쪽")도 문제 내용과 떨어져 있으면 함께 뺀다. (연한 띠는 표 머리줄과 헷갈릴 수 있어 쓰지 않는다)
+ for(const b of bands){
+   const ref=b.a.refTop!=null?b.a.refTop:b.y0;
+   const cuts=excludeZones.filter(z=>colOf((z.x0+z.x1)/2)===b.col&&z.y0>ref+8&&z.y0<b.y1).map(z=>z.y0);
+   if(!cuts.length)continue;
+   const cut=Math.min(...cuts);
+   const before=b.parts.length;
+   b.parts=b.parts.filter(k=>k.y0<cut-3&&cyOf(k)<cut);
+   if(b.parts.length===before)continue;
+   const sorted=[...b.parts].sort((p,q)=>p.y0-q.y0);
+   let split=-1,runMax=-Infinity;
+   for(let i=0;i<sorted.length;i++){if(i>0&&sorted[i].y0-runMax>=10)split=i;runMax=Math.max(runMax,sorted[i].y1)}
+   if(split>0){
+     const tail=sorted.slice(split);
+     const ty0=Math.min(...tail.map(k=>k.y0)),ty1=Math.max(...tail.map(k=>k.y1));
+     if(ty0>=cut-25&&ty1-ty0<=15){const drop=new Set(tail);b.parts=b.parts.filter(k=>!drop.has(k))}
+   }
+ }
+
  // 5) 결과 영역 + 검사(너무 작음 / 다른 문제와 겹침이면 기존 좌표 사용)
  const results=[];
  for(const b of bands){
@@ -1956,6 +1976,7 @@ async function computeCropV2Page(bookId,pageNo){
    const hs=inItems.map(i=>i.h).filter(h=>h>=4&&h<=20).sort((a,b)=>a-b);
    let fontPt=hs.length?hs[(hs.length/2)|0]:null;
    if(fontPt&&(fontPt<5||fontPt>14))fontPt=null;
+   fontPt=correctFontByKorean(fontPt,inItems);
    results.push({...base(b.a.q),rect,status,reason,fontPt});
  }
  if(results.some(r=>r.reason==='no-content'||r.reason==='too-small')){
@@ -1974,17 +1995,37 @@ async function medianFontPtInRect(page,c){
  try{
    const v1=page.getViewport({scale:1});
    const tc=await page.getTextContent();
-   const hs=[];
+   const hs=[],list=[];
    for(const it of tc.items){
      if(!it.str||!it.str.trim())continue;
      const t=pdfjsLib.Util.transform(v1.transform,it.transform);
      const h=Math.abs(t[3])||it.height||0;
-     if(t[4]>=c.x0-1&&t[4]<=c.x1&&t[5]>=c.y0&&t[5]<=c.y1+2&&h>=4&&h<=20)hs.push(h);
+     if(t[4]>=c.x0-1&&t[4]<=c.x1&&t[5]>=c.y0&&t[5]<=c.y1+2&&h>=4&&h<=20){
+       hs.push(h);
+       list.push({str:it.str,h,rot:Math.abs(it.transform[1])>1e-3||Math.abs(it.transform[2])>1e-3});
+     }
    }
    hs.sort((a,b)=>a-b);
    const f=hs.length?hs[(hs.length/2)|0]:null;
-   return f&&f>=5&&f<=14?f:null;
+   return correctFontByKorean(f&&f>=5&&f<=14?f:null,list);
  }catch(e){return null}
+}
+
+// 글자 크기 보정: 수식 조각(작은 글자)이 많으면 "글자 조각 높이의 중앙값"이 본문보다 작게 나온다(예: 본문 10pt인데 7pt).
+// 한글이 가장 많이 쓰인 높이가 중앙값보다 1.2배 이상 크면 그 높이를 본문 크기로 쓴다. 그 밖에는 기존 값을 그대로 둔다.
+function correctFontByKorean(fontPt,list){
+ if(!fontPt)return fontPt;
+ const w={};let tot=0;
+ for(const it of list){
+   if(it.rot||!(it.h>=4&&it.h<=20))continue;
+   const n=(String(it.str).match(/[가-힣]/g)||[]).length;
+   if(!n)continue;
+   const h=Math.round(it.h*100)/100;
+   w[h]=(w[h]||0)+n;tot+=n;
+ }
+ if(!tot)return fontPt;
+ const kor=+Object.entries(w).sort((a,b)=>b[1]-a[1]||b[0]-a[0])[0][0];
+ return kor>=5&&kor<=14&&kor>=fontPt*1.2?kor:fontPt;
 }
 
 // 교재 한 권을 새 방식으로 다시 계산(기존 저장값은 그대로 두고 새 방식 저장소만 갱신)
