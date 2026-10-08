@@ -427,6 +427,7 @@ table{width:100%;border-collapse:separate;border-spacing:0;font-size:13px}th{bac
   </nav>
 </aside>
 <main>
+<div id="storageWarning" class="note hidden" style="border:2px solid var(--danger);background:#fff5f5;margin-bottom:14px"></div>
 <div class="top"><div><h1 id="pageTitle">대시보드</h1><div class="sub">원본 PDF를 먼저 핀셋관리용으로 정리한 뒤, 정리된 PDF만 문제은행에 업로드하는 2단계 방식입니다.</div></div><span class="badge bundle">PDF 업로드형 · A4미리보기=인쇄 · 고정크롭 · 잘림방지</span></div>
 
 <section id="dashboard" class="section active">
@@ -591,6 +592,7 @@ table{width:100%;border-collapse:separate;border-spacing:0;font-size:13px}th{bac
    <label class="btn secondary">안전 병합 가져오기 (ZIP)<input id="importZipFile" type="file" accept=".zip,application/zip" style="display:none"></label>
   </div>
   <div id="transferStatus" class="note hidden" style="margin-top:12px"></div>
+  <div id="storageStatus" class="muted small" style="margin-top:8px"></div>
  </div>
 
   <div class="card">
@@ -1672,13 +1674,40 @@ async function getCropV2(q){
  const results=await computeCropV2PageCached(q.bookId,q.page);
  return results.find(r=>r.key===key)||null;
 }
+// 크롭 결과 저장은 모아서 한 번에 한다(쪽마다 저장하면 저장소 쓰기가 잦아 브라우저 부담이 커진다).
+// 결과는 메모리(cropV2Mem)에 바로 들어가므로 저장이 조금 늦어도 화면에는 영향이 없다.
+const cropV2WriteQueue=[];let cropV2WriteTimer=null;
+function queueCropV2Write(entries){
+ cropV2WriteQueue.push(...entries);
+ if(cropV2WriteQueue.length>=400){flushCropV2Writes();return}
+ clearTimeout(cropV2WriteTimer);cropV2WriteTimer=setTimeout(flushCropV2Writes,2000);
+}
+async function flushCropV2Writes(){
+ clearTimeout(cropV2WriteTimer);cropV2WriteTimer=null;
+ if(!cropV2WriteQueue.length)return;
+ const batch=cropV2WriteQueue.splice(0);
+ await cropV2DbPutMany(batch).catch(err=>console.warn('새 방식 크롭 저장 실패',err));
+}
+window.addEventListener('pagehide',()=>{flushCropV2Writes()});
+// 예전 계산 방식(버전)의 저장 결과는 버전마다 한 번, 한 번에 정리한다.
+async function pruneOldCropV2(){
+ const flag='onepick_cropv2_pruned_v'+CROP_V2_VERSION;
+ try{if(localStorage.getItem(flag)==='1')return}catch(e){}
+ const db=await openCropV2DB();const prefix=`v${CROP_V2_VERSION}|`;
+ await new Promise((res,rej)=>{
+   const tx=db.transaction('crops','readwrite');const r=tx.objectStore('crops').openCursor();
+   r.onsuccess=()=>{const c=r.result;if(!c)return;if(!String(c.key).startsWith(prefix))c.delete();c.continue()};
+   tx.oncomplete=res;tx.onerror=()=>rej(tx.error);
+ });
+ try{localStorage.setItem(flag,'1')}catch(e){}
+}
 function computeCropV2PageCached(bookId,pageNo){
  const pk=bookId+'|'+pageNo;
  if(cropV2PagePending.has(pk)) return cropV2PagePending.get(pk);
  const p=(async()=>{
    const results=await computeCropV2Page(bookId,pageNo);
    for(const r of results) cropV2Mem.set(r.key,r);
-   await cropV2DbPutMany(results).catch(err=>console.warn('새 방식 크롭 저장 실패',err));
+   queueCropV2Write(results);
    return results;
  })().finally(()=>cropV2PagePending.delete(pk));
  cropV2PagePending.set(pk,p);
@@ -2082,6 +2111,7 @@ async function recomputeCropV2ForBook(bookId,onProgress){
    for(const r of rs){if(r.status==='ok')ok++;else{fallback++;reasons[r.reason]=(reasons[r.reason]||0)+1}}
  }
  onProgress?.(pages.length,pages.length);
+ await flushCropV2Writes();
  const info={ok,fallback,reasons,failedPages,at:new Date().toISOString()};
  saveCropV2Summary(bookId,info);
  return info;
@@ -3026,12 +3056,13 @@ $('makeTest').onclick=async()=>{
    const q=state.questions.find(q=>q.key===e.questionKey);
    if(!q) continue;
    let url='';
-   try{url=await cropQuestionImage(q,3)}catch(err){}
+   let imgErr='';
+   try{url=await cropQuestionImage(q,3)}catch(err){console.warn('문제 이미지 실패',q.key,err);imgErr=describeImageError(err)}
    const meta=await loadImageMeta(url);
    const viewKey=viewKeyForQuestion(q,3);
    const auto=autoLayout&&url?chooseAutoLayout(problemFitMetaCache.get(viewKey)):null;
    const layout=auto||chooseReadableLayout(q,meta);
-   rendered.push({e,q,url,meta,layout,viewKey,auto:autoLayout&&!!url});
+   rendered.push({e,q,url,meta,layout,viewKey,imgErr,auto:autoLayout&&!!url});
  }
 
  // 2x2 시험지 그리드에 실제 모양대로 배치
@@ -3099,7 +3130,7 @@ $('makeTest').onclick=async()=>{
       problemsHtml += `<div class="test-problem${cls}" style="${pos}" data-view-key="${esc(item.viewKey)}" data-question-key="${esc(q.key)}"${item.auto?` data-auto-font="${layoutCfg.fontPt}"`:''} data-base-zoom="${baseZoom}" data-zoom="${defaultZoom}" data-default-zoom="${defaultZoom}" data-x="${defaultX}" data-y="${defaultY}" data-saved="${savedFlag}">
        <h3>${globalIndex}. <span class="mono">문제번호 ${esc(q.id)}</span> <span class="problem-page">· 교재 p.${q.page}</span></h3>
        <div class="problem-meta">최초 오답일 ${e.firstDate}</div>
-       <div class="problem-image-wrap">${url ? `<img class="preview-problem-img" src="${url}" alt="${esc(q.id)}" onload="applyProblemView(this.closest('.test-problem'))" onwheel="nudgeProblemWithWheel(event,this)">` : `<div class="note" style="width:100%">PDF 원본을 다시 업로드해야 합니다.</div>`}</div>
+       <div class="problem-image-wrap">${url ? `<img class="preview-problem-img" src="${url}" alt="${esc(q.id)}" onload="applyProblemView(this.closest('.test-problem'))" onwheel="nudgeProblemWithWheel(event,this)">` : `<div class="note" style="width:100%">${esc(item.imgErr||'문제 이미지를 만들지 못했습니다.')}</div>`}</div>
      </div>`;
      globalIndex++;
    }
@@ -3612,6 +3643,7 @@ $('importZipFile').onchange=async e=>{
      교재 PDF ${pdfsRestored}권을 연결했습니다.
      ${pdfsMissing?`<br><b>주의:</b> ZIP에서 PDF를 찾지 못한 교재 ${pdfsMissing}권이 있습니다.`:''}`;
    toast('기존 학생·오답을 보존한 채 문제 조정값을 병합했습니다.');
+   checkMissingPdfs().catch(()=>{});
  }catch(err){
    console.error(err);
    box.innerHTML='<b>병합 가져오기 실패</b><br>'+esc(err.message||err);
@@ -3800,6 +3832,48 @@ setTimeout(()=>installBundledSharedBook({
 setTimeout(importBundledHusbandBackupIfNeeded,400);
 refreshPublishBookSelect();
 setTimeout(autoCloudSync,1200);
+
+// ─── 재발 방지: 저장공간 보호 · 교재 PDF 확인 ───
+// 문제 이미지를 못 만든 실제 이유를 카드에 보여 준다.
+function describeImageError(err){
+ const m=String(err&&err.message||err||'');
+ if(/PDF 원본을 찾을 수 없습니다/.test(m))return '이 교재의 PDF 원본이 이 브라우저에 없습니다. 백업 / 복원 → 안전 병합 가져오기 (ZIP)로 최근 백업을 넣으면 복구됩니다.';
+ if(/PDF 분석 모듈/.test(m))return 'PDF 분석 모듈을 불러오지 못했습니다. 인터넷 연결을 확인한 뒤 새로고침해 주세요.';
+ return '문제 이미지를 만드는 중 오류가 났습니다: '+m.slice(0,150);
+}
+// 브라우저가 저장공간(교재 PDF 등)을 임의로 지우지 못하게 요청한다. 허용 여부는 브라우저가 정한다.
+async function requestPersistentStorage(){
+ try{
+   if(!navigator.storage||!navigator.storage.persist)return null;
+   if(await navigator.storage.persisted())return true;
+   return await navigator.storage.persist();
+ }catch(e){return null}
+}
+async function listStoredPdfIds(){
+ const db=await openDB();
+ return new Promise((res,rej)=>{const tx=db.transaction('pdfs','readonly');const r=tx.objectStore('pdfs').getAllKeys();r.onsuccess=()=>res(new Set(r.result||[]));r.onerror=()=>rej(r.error)});
+}
+// PDF 원본이 없는 교재가 있으면 화면 위에 경고와 복구 방법을 보여 준다.
+async function checkMissingPdfs(){
+ const box=$('storageWarning');if(!box)return [];
+ let ids;try{ids=await listStoredPdfIds()}catch(e){return []}
+ const missing=(state.books||[]).filter(b=>!ids.has(b.id));
+ if(!missing.length){box.classList.add('hidden');box.innerHTML='';return missing}
+ box.classList.remove('hidden');
+ box.innerHTML=`<b>⚠ 이 브라우저에 PDF 원본이 없는 교재가 ${missing.length}권 있습니다.</b><br>
+   ${missing.map(b=>esc(b.name||b.fileName||b.id)).join(', ')}<br>
+   이 교재의 문제는 시험지에 그림이 나오지 않습니다. 학생·오답 기록은 그대로 있습니다.<br>
+   <b>복구 방법:</b> 왼쪽 메뉴 <b>백업 / 복원</b> → <b>안전 병합 가져오기 (ZIP)</b>에 가장 최근 백업 ZIP을 넣으면 PDF가 다시 연결됩니다(학생·오답은 그대로 보존).
+   <div class="row" style="margin-top:8px"><button class="btn secondary" type="button" onclick="checkMissingPdfs().then(m=>toast(m.length?'아직 PDF가 없는 교재가 '+m.length+'권 있습니다.':'모든 교재의 PDF가 있습니다.'))">다시 확인</button></div>`;
+ return missing;
+}
+window.checkMissingPdfs=checkMissingPdfs;
+requestPersistentStorage().then(p=>{
+ const el=$('storageStatus');
+ if(el)el.textContent=p===true?'브라우저 저장공간 보호: 켜짐 (브라우저가 교재 PDF를 임의로 지우지 않습니다)':p===false?'브라우저 저장공간 보호: 브라우저가 허용하지 않음 — 백업 ZIP을 주기적으로 받아 두세요.':'브라우저 저장공간 보호: 이 브라우저는 지원하지 않음 — 백업 ZIP을 주기적으로 받아 두세요.';
+});
+setTimeout(()=>checkMissingPdfs().catch(()=>{}),6000);
+setTimeout(()=>pruneOldCropV2().catch(()=>{}),20000);
 </script>
 </body>
 </html>
