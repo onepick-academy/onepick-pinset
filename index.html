@@ -1537,6 +1537,10 @@ async function cropQuestionImage(q,scale=2.4){
  outCtx.fillStyle='#fff';
  outCtx.fillRect(0,0,sw,sh);
  outCtx.drawImage(canvas,sx,sy,sw,sh,0,0,sw,sh);
+ // 큰 페이지 캔버스와 pdf.js 쪽 자원(그림·글꼴 해석 결과)은 바로 놓아준다.
+ // 놓지 않으면 문제를 그릴 때마다 메모리에 쌓여, 여러 교재를 연달아 처리하면 브라우저가 멈추거나 그림이 불완전해질 수 있다.
+ canvas.width=canvas.height=0;
+ page.cleanup();
 
   const viewOverride=getConfirmedViewOverride(q);
   if(viewOverride?.removeLongLines){
@@ -1608,7 +1612,7 @@ async function cropQuestionImage(q,scale=2.4){
 // 문제 번호 사이 구간에 속한 덩어리를 통째로 포함한다.
 // 결과는 별도 IndexedDB(onepickCropV2Db)에만 저장하며, 기존 crop/fixedCrop은 절대 바꾸지 않는다.
 // ─────────────────────────────────────────────
-const CROP_V2_VERSION=8;
+const CROP_V2_VERSION=9;
 const CROP_V2_RENDER_SCALE=1.5;   // 분석용 렌더 배율(px/pt)
 const CROP_V2_BLOCK=2;            // 작은 틈을 잇기 위한 블록 크기(px)
 const CROP_V2_INK_LUM=230;        // 이보다 어두우면 내용으로 본다(연한 회색 선 포함)
@@ -1660,7 +1664,7 @@ async function getCropV2(q){
  const doc=await getPdfDoc(q.bookId);
  const fp=doc.fingerprints?.[0]||'';
  const sig=cropV2AnchorSig(q);
- const ok=e=>e && e.fp===fp && e.anchorSig===sig;
+ const ok=e=>e && e.fp===fp && e.anchorSig===sig && !(e.status==='fallback'&&(e.reason==='no-content'||e.reason==='too-small'));
  let e=cropV2Mem.get(key);
  if(ok(e)) return e;
  e=await cropV2DbGet(key).catch(()=>null);
@@ -1791,6 +1795,10 @@ async function computeCropV2Page(bookId,pageNo){
    return {str:it.str,x:t[4],y:t[5],w:it.width||0,h,rot};
  });
  const colOf=x=>x<gutter?0:1;
+
+ // 그리기 검사: 메모리 부족 등으로 페이지가 비어 그려졌으면 결과를 저장하지 않는다(이번엔 기존 좌표 사용, 다음에 다시 계산).
+ // (글자 정보와 잉크를 맞춰 보는 검사는 PDF마다 글자 정보가 실제 그림과 달라 쓰지 않는다.)
+ if(pageQs.length&&!mask.some(v=>v)){page.cleanup();throw new Error(`p.${pageNo} 그리기 결과가 비어 있음`)}
 
  const anchors=[];
  for(const q of pageQs){
@@ -1950,6 +1958,10 @@ async function computeCropV2Page(bookId,pageNo){
    if(fontPt&&(fontPt<5||fontPt>14))fontPt=null;
    results.push({...base(b.a.q),rect,status,reason,fontPt});
  }
+ if(results.some(r=>r.reason==='no-content'||r.reason==='too-small')){
+   page.cleanup();
+   throw new Error(`p.${pageNo} 내용이 비어 있는 문제가 있음(그리기 이상)`);
+ }
  for(const a of anchors.filter(a=>a.suspect)) results.push({...base(a.q),rect:null,status:'fallback',reason:'suspect-number',fontPt:null});
  // 같은 쪽 문제 중 번호 위치를 찾지 못해 구간이 없는 문제
  for(const q of pageQs) if(!results.some(r=>r.qKey===q.key)) results.push({...base(q),rect:null,status:'fallback',reason:'no-band',fontPt:null});
@@ -1982,14 +1994,16 @@ async function recomputeCropV2ForBook(bookId,onProgress){
  cropV2FakeMemo.delete(bookId);
  imageCache.clear(); problemFitMetaCache.clear();
  const pages=[...new Set((state.questions||[]).filter(q=>q.bookId===bookId).map(q=>q.page))].sort((a,b)=>a-b);
- let ok=0,fallback=0;const reasons={};
+ let ok=0,fallback=0;const reasons={},failedPages=[];
  for(let i=0;i<pages.length;i++){
    onProgress?.(i,pages.length);
-   const rs=await computeCropV2PageCached(bookId,pages[i]);
+   let rs;
+   try{rs=await computeCropV2PageCached(bookId,pages[i])}
+   catch(err){console.warn('새 방식 크롭 계산 실패',err);failedPages.push(pages[i]);continue}
    for(const r of rs){if(r.status==='ok')ok++;else{fallback++;reasons[r.reason]=(reasons[r.reason]||0)+1}}
  }
  onProgress?.(pages.length,pages.length);
- const info={ok,fallback,reasons,at:new Date().toISOString()};
+ const info={ok,fallback,reasons,failedPages,at:new Date().toISOString()};
  saveCropV2Summary(bookId,info);
  return info;
 }
@@ -2261,7 +2275,7 @@ function renderBooks(){
  const v2Line=b=>{
    const s=sum[b.id];
    if(!s||s.version!==CROP_V2_VERSION) return '새 방식 자르기: 아직 계산 전 (시험지를 만들 때 필요한 쪽만 자동 계산)';
-   return `새 방식 자르기: 정상 ${s.ok}개 · 기존 좌표 사용 ${s.fallback}개 · ${esc(String(s.at||'').slice(0,10))}`;
+   return `새 방식 자르기: 정상 ${s.ok}개 · 기존 좌표 사용 ${s.fallback}개${s.failedPages&&s.failedPages.length?` · 계산 실패 ${s.failedPages.length}쪽(다시 자르기를 한 번 더 눌러 주세요)`:''} · ${esc(String(s.at||'').slice(0,10))}`;
  };
  $('bookList').innerHTML=state.books.map(b=>`<div class="book"><div><b>${esc(b.name)}</b><div class="muted small">${esc(b.fileName)} · ${b.pages}페이지 · 문제 ${state.questions.filter(q=>q.bookId===b.id).length}개 · 묶음 ${state.questions.filter(q=>q.bookId===b.id&&q.bundle).length}개</div><div class="muted small" id="cropV2Status_${esc(b.id)}">${v2Line(b)}</div></div><div class="row" style="gap:6px;margin:0"><button class="btn secondary" onclick="recomputeBookCropV2('${b.id}')">새 방식으로 다시 자르기</button><button class="btn danger" onclick="removeBook('${b.id}')">삭제</button></div></div>`).join('')||'<div class="muted">아직 업로드한 PDF가 없습니다.</div>';
 }
